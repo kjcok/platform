@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据质量评估报告</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .report-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        
+        .report-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .report-title {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .report-meta {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .summary-card.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .summary-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .summary-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .summary-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .details-section {
+            margin-top: 40px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .result-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .result-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .result-table tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+        
+        .unexpected-list {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #856404;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .report-container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <!-- 报告头部 -->
+        <div class="report-header">
+            <h1 class="report-title">📊 数据质量评估报告</h1>
+            <div class="report-meta">
+                生成时间: {{ generated_at }} | 
+                总记录数: {{ total_rows }} | 
+                字段数: {{ columns|length }}
+            </div>
+        </div>
+        
+        <!-- 总体摘要 -->
+        <div class="summary-section">
+            <div class="summary-card {% if success_percent >= 90 %}success{% elif success_percent >= 70 %}{% else %}warning{% endif %}">
+                <div class="summary-value">{{ success_percent }}%</div>
+                <div class="summary-label">总体成功率</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ success_percent }}%"></div>
+                </div>
+            </div>
+            
+            <div class="summary-card success">
+                <div class="summary-value">{{ passed_rules }}</div>
+                <div class="summary-label">通过规则数</div>
+            </div>
+            
+            <div class="summary-card warning">
+                <div class="summary-value">{{ failed_rules }}</div>
+                <div class="summary-label">失败规则数</div>
+            </div>
+            
+            <div class="summary-card">
+                <div class="summary-value">{{ total_rules }}</div>
+                <div class="summary-label">总规则数</div>
+            </div>
+        </div>
+        
+        <!-- 详细结果 -->
+        <div class="details-section">
+            <h2 class="section-title">📋 详细评估结果</h2>
+            
+            <table class="result-table">
+                <thead>
+                    <tr>
+                        <th>字段名</th>
+                        <th>规则类型</th>
+                        <th>状态</th>
+                        <th>异常数量</th>
+                        <th>异常比例</th>
+                        <th>详情</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail in details %}
+                    <tr>
+                        <td><strong>{{ detail.column }}</strong></td>
+                        <td>{{ get_rule_name(detail.rule_type) }}</td>
+                        <td>
+                            {% if detail.success %}
+                                <span class="status-badge status-pass">✅ 通过</span>
+                            {% else %}
+                                <span class="status-badge status-fail">❌ 失败</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if detail.success %}
+                                0
+                            {% else %}
+                                {{ detail.unexpected_count }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if detail.success %}
+                                0%
+                            {% else %}
+                                {{ "%.2f"|format(detail.unexpected_percent) }}%
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not detail.success %}
+                                {% if detail.get('sample_unexpected') %}
+                                    <div class="unexpected-list">
+                                        <strong>异常值示例:</strong><br>
+                                        {{ detail.sample_unexpected|join(', ') }}
+                                    </div>
+                                {% elif detail.get('error') %}
+                                    <div class="error-message">
+                                        错误: {{ detail.error }}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 页脚 -->
+        <div class="footer">
+            <p>基于 GB/T 36344-2018 信息技术 数据质量评价指标标准</p>
+            <p>使用 Great Expectations 引擎进行评估</p>
+        </div>
+    </div>
+    
+    <script>
+        // 规则类型中文映射
+        function getRuleName(ruleType) {
+            const ruleNames = {
+                'not_null': '非空检查',
+                'unique': '唯一性检查',
+                'between': '数值范围',
+                'in_set': '枚举值检查',
+                'match_regex': '正则匹配',
+                'type_string': '字符串类型',
+                'type_integer': '整数类型',
+                'type_float': '浮点数类型'
+            };
+            return ruleNames[ruleType] || ruleType;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据质量评估平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .upload-section {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+        
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f8f9ff;
+        }
+        
+        .upload-section input[type="file"] {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .file-info {
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .rules-section {
+            margin-top: 30px;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .rule-item {
+            background: #f8f9ff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .rule-item select, .rule-item input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .rule-item select {
+            min-width: 150px;
+        }
+        
+        .rule-item input {
+            width: 100px;
+        }
+        
+        .add-rule-btn, .remove-rule-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .add-rule-btn {
+            background: #667eea;
+            color: white;
+        }
+        
+        .add-rule-btn:hover {
+            background: #5568d3;
+        }
+        
+        .remove-rule-btn {
+            background: #ff4757;
+            color: white;
+        }
+        
+        .remove-rule-btn:hover {
+            background: #ee3a4a;
+        }
+        
+        .evaluate-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: all 0.3s;
+        }
+        
+        .evaluate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .evaluate-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 数据质量评估平台</h1>
+        <p class="subtitle">基于 GB/T 36344-2018 标准 | Great Expectations 引擎</p>
+        
+        <!-- 文件上传区域 -->
+        <div class="upload-section">
+            <input type="file" id="dataFile" accept=".csv,.xlsx,.xls" />
+            <button class="upload-btn" onclick="document.getElementById('dataFile').click()">
+                📁 选择数据文件
+            </button>
+            <div class="file-info" id="fileInfo">支持 CSV、XLSX、XLS 格式</div>
+        </div>
+        
+        <!-- 规则配置区域 -->
+        <div class="rules-section" id="rulesSection" style="display: none;">
+            <h2 class="section-title">⚙️ 配置质量规则</h2>
+            <div id="rulesContainer"></div>
+            <button class="add-rule-btn" onclick="addRule()">+ 添加规则</button>
+        </div>
+        
+        <!-- 执行按钮 -->
+        <button class="evaluate-btn" id="evaluateBtn" onclick="submitEvaluation()" disabled>
+            🚀 开始测评
+        </button>
+        
+        <!-- 加载提示 -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>正在执行数据质量评估...</div>
+        </div>
+        
+        <!-- 消息提示 -->
+        <div class="message" id="message"></div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        let fileId = null;
+        let columns = [];
+        let ruleCount = 0;
+        
+        // 文件上传处理
+        $('#dataFile').change(function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            $('#fileInfo').text('正在上传...');
+            
+            $.ajax({
+                url: '/api/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.status === 'success') {
+                        fileId = response.file_id;
+                        columns = response.columns;
+                        $('#fileInfo').text(`✅ 已上传: ${file.name} (${columns.length} 个字段)`);
+                        $('#rulesSection').show();
+                        $('#evaluateBtn').prop('disabled', false);
+                        
+                        // 自动添加第一条规则
+                        if (ruleCount === 0) {
+                            addRule();
+                        }
+                    } else {
+                        showMessage(response.message, 'error');
+                    }
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : '上传失败';
+                    showMessage(errorMsg, 'error');
+                    $('#fileInfo').text('上传失败，请重试');
+                }
+            });
+        });
+        
+        // 添加规则
+        function addRule() {
+            ruleCount++;
+            const ruleHtml = `
+                <div class="rule-item" id="rule-${ruleCount}">
+                    <select class="column-select">
+                        <option value="">选择字段</option>
+                        ${columns.map(col => `<option value="${col}">${col}</option>`).join('')}
+                    </select>
+                    
+                    <select class="rule-type">
+                        <option value="">选择规则类型</option>
+                        <option value="not_null">非空检查</option>
+                        <option value="unique">唯一性检查</option>
+                        <option value="between">数值范围</option>
+                        <option value="in_set">枚举值检查</option>
+                        <option value="match_regex">正则匹配</option>
+                        <option value="type_string">字符串类型</option>
+                        <option value="type_integer">整数类型</option>
+                        <option value="type_float">浮点数类型</option>
+                    </select>
+                    
+                    <div class="rule-params" style="display: none;">
+                        <input type="number" placeholder="最小值" class="min-value" />
+                        <input type="number" placeholder="最大值" class="max-value" />
+                    </div>
+                    
+                    <button class="remove-rule-btn" onclick="removeRule(${ruleCount})">删除</button>
+                </div>
+            `;
+            
+            $('#rulesContainer').append(ruleHtml);
+        }
+        
+        // 删除规则
+        function removeRule(id) {
+            $(`#rule-${id}`).remove();
+        }
+        
+        // 提交评估
+        function submitEvaluation() {
+            // 收集规则
+            const rules = [];
+            $('.rule-item').each(function() {
+                const column = $(this).find('.column-select').val();
+                const ruleType = $(this).find('.rule-type').val();
+                
+                if (!column || !ruleType) {
+                    showMessage('请填写完整的规则信息', 'error');
+                    return false;
+                }
+                
+                const rule = {
+                    column: column,
+                    rule_type: ruleType
+                };
+                
+                // 添加参数
+                if (ruleType === 'between') {
+                    const minValue = $(this).find('.min-value').val();
+                    const maxValue = $(this).find('.max-value').val();
+                    if (minValue && maxValue) {
+                        rule.params = {
+                            min_value: parseFloat(minValue),
+                            max_value: parseFloat(maxValue)
+                        };
+                    }
+                }
+                
+                rules.push(rule);
+            });
+            
+            if (rules.length === 0) {
+                showMessage('请至少添加一条规则', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            $('#loading').show();
+            $('#evaluateBtn').prop('disabled', true);
+            
+            // 发送评估请求
+            $.ajax({
+                url: '/api/evaluate',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    file_id: fileId,
+                    rules: rules
+                }),
+                success: function(response) {
+                    $('#loading').hide();
+                    $('#evaluateBtn').prop('disabled', false);
+                    
+                    if (response.status === 'success') {
+                        showMessage('✅ 评估完成！正在打开报告...', 'success');
+                        setTimeout(() => {
+                            window.open(response.report_url, '_blank');
+                        }, 1000);
+                    } else {
+                        showMessage(response.message, 'error');
+                    }
+                },
+                error: function(xhr) {
+                    $('#loading').hide();
+                    $('#evaluateBtn').prop('disabled', false);
+                    
+                    const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : '评估失败';
+                    showMessage(errorMsg, 'error');
+                }
+            });
+        }
+        
+        // 显示消息
+        function showMessage(text, type) {
+            const msgDiv = $('#message');
+            msgDiv.text(text);
+            msgDiv.removeClass('success error').addClass(type);
+            msgDiv.show();
+            
+            setTimeout(() => {
+                msgDiv.fadeOut();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
