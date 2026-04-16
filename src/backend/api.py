@@ -18,6 +18,25 @@ from quality_runner import QualityRunner, StrongRuleFailedException
 # 导入数据模型（用于统计查询）
 from models import Asset, Rule, Issue, ValidationHistory
 
+# 导入第四阶段模块（可选）
+try:
+    from scheduler import scheduler, init_scheduler
+    SCHEDULER_ENABLED = True
+except ImportError:
+    SCHEDULER_ENABLED = False
+
+try:
+    from alert_notifier import alert_manager, init_default_alerts
+    ALERT_ENABLED = True
+except ImportError:
+    ALERT_ENABLED = False
+
+try:
+    from auth import jwt_auth, token_required, admin_required
+    AUTH_ENABLED = True
+except ImportError:
+    AUTH_ENABLED = False
+
 
 # 创建蓝图
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
@@ -1012,6 +1031,302 @@ def get_statistics_overview():
             
     except Exception as e:
         return handle_error(e)
+
+
+# ==================== 第四阶段：自动化与集成 API ====================
+
+# --- 定时任务管理 API ---
+
+@api_bp.route('/scheduler/jobs', methods=['GET'])
+def list_scheduled_jobs():
+    """获取所有定时任务列表"""
+    if not SCHEDULER_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '调度器未启用'
+        }), 503
+    
+    try:
+        jobs = scheduler.list_all_jobs()
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'jobs': jobs,
+                'total': len(jobs)
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/assets/<int:asset_id>/schedule', methods=['POST'])
+def schedule_asset_validation(asset_id):
+    """为资产创建定时校验任务"""
+    if not SCHEDULER_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '调度器未启用'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        
+        schedule_type = data.get('schedule_type', 'interval')
+        interval_hours = data.get('interval_hours', 24)
+        cron_expression = data.get('cron_expression')
+        rule_ids = data.get('rule_ids')
+        auto_archive = data.get('auto_archive', True)
+        auto_create_issue = data.get('auto_create_issue', True)
+        
+        job_id = scheduler.add_asset_validation_job(
+            asset_id=asset_id,
+            schedule_type=schedule_type,
+            interval_hours=interval_hours,
+            cron_expression=cron_expression,
+            rule_ids=rule_ids,
+            auto_archive=auto_archive,
+            auto_create_issue=auto_create_issue
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'job_id': job_id,
+                'asset_id': asset_id,
+                'schedule_type': schedule_type
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/assets/<int:asset_id>/schedule', methods=['DELETE'])
+def remove_asset_schedule(asset_id):
+    """移除资产的定时校验任务"""
+    if not SCHEDULER_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '调度器未启用'
+        }), 503
+    
+    try:
+        scheduler.remove_job(asset_id)
+        return jsonify({
+            'status': 'success',
+            'message': f'已移除资产 {asset_id} 的定时任务'
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/assets/<int:asset_id>/schedule/status', methods=['GET'])
+def get_schedule_status(asset_id):
+    """获取资产的调度状态"""
+    if not SCHEDULER_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '调度器未启用'
+        }), 503
+    
+    try:
+        status = scheduler.get_job_status(asset_id)
+        return jsonify({
+            'status': 'success',
+            'data': status
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+# --- 告警配置 API ---
+
+@api_bp.route('/alerts/configure', methods=['POST'])
+def configure_alerts():
+    """配置告警渠道"""
+    if not ALERT_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '告警模块未启用'
+        }), 503
+    
+    try:
+        config = request.get_json()
+        init_default_alerts(config)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'channels': list(alert_manager.channels.keys())
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/alerts/test', methods=['POST'])
+def test_alert():
+    """测试告警发送"""
+    if not ALERT_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '告警模块未启用'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        title = data.get('title', '测试告警')
+        message = data.get('message', '这是一条测试告警消息')
+        channels = data.get('channels')  # None 表示发送到所有渠道
+        
+        if channels:
+            results = alert_manager.send_alert(channels, title, message)
+        else:
+            results = alert_manager.send_all(title, message)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'results': results
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/alerts/channels', methods=['GET'])
+def list_alert_channels():
+    """获取已配置的告警渠道"""
+    if not ALERT_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '告警模块未启用'
+        }), 503
+    
+    try:
+        channels = list(alert_manager.channels.keys())
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'channels': channels,
+                'total': len(channels)
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+# --- 认证 API ---
+
+@api_bp.route('/auth/login', methods=['POST'])
+def login():
+    """用户登录（生成 Token）"""
+    if not AUTH_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '认证模块未启用'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        # TODO: 这里应该验证用户名密码（从数据库或 LDAP）
+        # 目前简化处理，只要提供用户名就生成 Token
+        if not username:
+            return jsonify({
+                'status': 'error',
+                'message': '缺少用户名'
+            }), 400
+        
+        # 生成 Token
+        token = jwt_auth.generate_token(
+            user_id='1',  # 简化：固定用户ID
+            username=username,
+            role=data.get('role', 'user')
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'token': token,
+                'username': username,
+                'expires_in': f'{jwt_auth.token_expiry_hours}小时'
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/auth/refresh', methods=['POST'])
+def refresh_token():
+    """刷新 Token"""
+    if not AUTH_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '认证模块未启用'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        old_token = data.get('token')
+        
+        if not old_token:
+            return jsonify({
+                'status': 'error',
+                'message': '缺少 Token'
+            }), 400
+        
+        new_token = jwt_auth.refresh_token(old_token)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'token': new_token
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/auth/verify', methods=['POST'])
+def verify_token():
+    """验证 Token"""
+    if not AUTH_ENABLED:
+        return jsonify({
+            'status': 'error',
+            'message': '认证模块未启用'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        
+        if not token:
+            return jsonify({
+                'status': 'error',
+                'message': '缺少 Token'
+            }), 400
+        
+        payload = jwt_auth.verify_token(token)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'valid': True,
+                'user': {
+                    'user_id': payload['user_id'],
+                    'username': payload['username'],
+                    'role': payload.get('role', 'user')
+                },
+                'expires_at': datetime.fromtimestamp(payload['exp']).isoformat()
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Token 无效: {str(e)}'
+        }), 401
 
 
 # 注册蓝图

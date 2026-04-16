@@ -21,6 +21,13 @@ from db_utils import (
 )
 from ge_engine import run_evaluation as ge_run_evaluation
 
+# 导入告警模块（可选）
+try:
+    from alert_notifier import alert_manager, format_validation_failure_alert
+    ALERT_ENABLED = True
+except ImportError:
+    ALERT_ENABLED = False
+
 
 class QualityRunner:
     """
@@ -428,6 +435,26 @@ class QualityRunner:
         )
         
         print(f"[INFO] 自动创建问题工单: {issue.title} (ID: {issue.id})")
+        
+        # 发送告警通知（如果启用了告警）
+        if ALERT_ENABLED and alert_manager.channels:
+            try:
+                title, message = format_validation_failure_alert(
+                    asset_name=asset.name,
+                    failed_rules=[{
+                        'rule_name': rule.name,
+                        'rule_type': rule.rule_type,
+                        'column_name': rule.column_name,
+                        'success_percent': result.get('pass_rate', 0)
+                    }],
+                    validation_result=result
+                )
+                
+                # 发送到所有配置的渠道
+                alert_manager.send_all(title, message)
+                print(f"[INFO] 已发送告警通知")
+            except Exception as e:
+                print(f"[WARNING] 告警发送失败: {e}")
 
 
 class StrongRuleFailedException(Exception):
