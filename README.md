@@ -2,6 +2,29 @@
 
 基于 GB/T 36344-2018 标准的结构化数据质量评估平台，使用 Great Expectations 引擎实现。
 
+## 🚀 最新进展
+
+### ✅ 第一阶段完成：元数据模型设计与存储层
+
+- **5张核心表**：资产表、规则表、校验历史表、问题清单表、异常数据归档表
+- **SQLAlchemy ORM**：完整的关系映射和级联删除
+- **5个管理器类**：AssetManager、RuleManager、ValidationHistoryManager、IssueManager、ExceptionDataManager
+- **28个单元测试**：全部通过，覆盖所有CRUD操作和关系验证
+- **完整文档**：详细的使用说明和示例代码
+
+📖 详见：[第一阶段文档](docs/PHASE1_DATABASE_MODEL.md)
+
+### ✅ 第二阶段完成：核心执行引擎改造
+
+- **QualityRunner 类**：基于数据库配置的动态校验执行引擎
+- **强/弱规则控制**：强规则失败抛出异常中断流程，弱规则仅记录
+- **自动异常归档**：提取GE的unexpected values并保存到数据库
+- **自动问题工单**：校验失败时自动生成问题记录
+- **12个单元测试**：全部通过，覆盖核心功能和异常场景
+- **完整示例**：包含调试脚本和使用演示
+
+📖 详见：[第二阶段文档](docs/PHASE2_COMPLETION_SUMMARY.md)
+
 ## 📁 项目结构
 
 ```
