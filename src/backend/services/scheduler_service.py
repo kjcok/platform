@@ -9,12 +9,12 @@ from datetime import datetime
 import json
 import logging
 
-from db_utils import get_session, AssetManager, RuleManager, ValidationHistoryManager
-from quality_runner import QualityRunner, StrongRuleFailedException
+from models.managers import get_session, AssetManager, RuleManager, ValidationHistoryManager
+from engine.quality_runner import QualityRunner, StrongRuleFailedException
 
 # 导入告警模块（可选）
 try:
-    from alert_notifier import alert_manager, format_validation_failure_alert
+    from services.notification_service import alert_manager, format_validation_failure_alert
     ALERT_ENABLED = True
 except ImportError:
     ALERT_ENABLED = False

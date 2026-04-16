@@ -9,21 +9,16 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 # 导入数据库模型和管理器
-import sys
-import os
-backend_path = os.path.join(os.path.dirname(__file__))
-sys.path.insert(0, backend_path)
-
-from models import get_session
-from db_utils import (
+from models.base import get_session
+from models.managers import (
     AssetManager, RuleManager, ValidationHistoryManager,
     IssueManager, ExceptionDataManager
 )
-from ge_engine import run_evaluation as ge_run_evaluation
+from engine.ge_wrapper import run_evaluation as ge_run_evaluation
 
 # 导入告警模块（可选）
 try:
-    from alert_notifier import alert_manager, format_validation_failure_alert
+    from services.notification_service import alert_manager, format_validation_failure_alert
     ALERT_ENABLED = True
 except ImportError:
     ALERT_ENABLED = False

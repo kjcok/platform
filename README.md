@@ -116,19 +116,34 @@
 ```
 platform/
 ├── src/                    # 程序代码目录
-│   ├── backend/           # 后端代码
-│   │   ├── app.py        # Flask 主应用
-│   │   ├── api.py        # RESTful API（第三阶段）
-│   │   ├── file_manager.py    # 文件管理模块
-│   │   ├── ge_engine.py       # GE 评估引擎
-│   │   ├── report_renderer.py # 报告渲染器
-│   │   ├── models.py          # 数据模型
-│   │   ├── db_utils.py        # 数据库工具
-│   │   ├── quality_runner.py  # 质量执行引擎（第二阶段）
-│   │   ├── scheduler.py       # 定时任务调度器（第四阶段）
-│   │   ├── alert_notifier.py  # 告警通知模块（第四阶段）
-│   │   ├── db_connector.py    # 数据库连接器（第四阶段）
-│   │   └── auth.py            # JWT 认证模块（第四阶段）
+│   ├── backend/           # 后端代码（分层架构）
+│   │   ├── app.py        # Flask 主应用入口
+│   │   ├── api/          # API 路由层
+│   │   │   ├── __init__.py
+│   │   │   └── routes.py # RESTful API 路由
+│   │   ├── models/       # 数据模型层
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py   # SQLAlchemy 模型定义
+│   │   │   └── managers.py # 数据库管理器类
+│   │   ├── engine/       # 执行引擎层
+│   │   │   ├── __init__.py
+│   │   │   ├── quality_runner.py # 质量规则执行引擎
+│   │   │   └── ge_wrapper.py     # Great Expectations 封装
+│   │   ├── services/     # 业务服务层
+│   │   │   ├── __init__.py
+│   │   │   ├── file_service.py      # 文件管理服务
+│   │   │   ├── report_service.py    # 报告生成服务
+│   │   │   ├── scheduler_service.py # 定时任务调度
+│   │   │   └── notification_service.py # 告警通知服务
+│   │   ├── integrations/ # 外部集成层
+│   │   │   ├── __init__.py
+│   │   │   └── db_connector.py      # 数据库连接器
+│   │   ├── middleware/   # 中间件层
+│   │   │   ├── __init__.py
+│   │   │   └── auth.py              # JWT 认证中间件
+│   │   └── config/       # 配置模块
+│   │       ├── __init__.py
+│   │       └── settings.py          # 应用配置
 │   └── frontend/          # 前端代码
 │       ├── templates/     # HTML 模板
 │       │   ├── base.html              # 基础布局模板
@@ -148,8 +163,11 @@ platform/
 ├── docs/                   # 文档目录
 │   ├── ARCHITECTURE.md    # 技术架构
 │   ├── QUICKSTART.md      # 快速开始
-│   ├── VENV_USAGE.md      # 虚拟环境说明
-│   ├── PHASE1_DATABASE_MODEL.md       # 第一阶段文档
+│   ├── DIRECTORY_STRUCTURE.md # 目录结构说明
+│   ├── PROJECT_OVERVIEW.md # 项目概览
+│   ├── CLEANUP_REPORT.md  # 工程清理报告
+│   ├── REFACTORING_REPORT.md # 代码重组报告
+│   ├── PHASE1_*.md        # 第一阶段文档（3个）
 │   ├── PHASE2_COMPLETION_SUMMARY.md   # 第二阶段文档
 │   ├── PHASE3_COMPLETION_SUMMARY.md   # 第三阶段文档
 │   ├── PHASE4_COMPLETION_SUMMARY.md   # 第四阶段文档
@@ -162,17 +180,15 @@ platform/
 │   ├── data/             # 测试数据
 │   └── scripts/          # 测试脚本
 │       ├── test_models.py              # 第一阶段测试
-│       ├── test_db_utils.py            # 第一阶段测试
 │       ├── test_quality_runner.py      # 第二阶段测试
-│       ├── test_phase3_simple.py       # 第三阶段测试
+│       ├── test_phase3_api.py          # 第三阶段API测试
 │       ├── test_phase4.py              # 第四阶段测试
-│       ├── demo_quality_runner.py      # 第二阶段示例
-│       ├── demo_api_quickstart.py      # 第三阶段示例
+│       ├── demo_*.py                   # 演示脚本
 │       └── test_api_simple.ps1         # API 测试脚本
 ├── config/                 # 配置文件目录
 │   ├── requirements.txt  # Python 依赖
-│   └── settings.py       # 应用配置
-├── temp/                   # 中间过程文件（可随时删除）
+│   └── dataq.db          # SQLite 数据库
+├── temp/                   # 临时文件目录
 ├── README.md              # 项目说明（本文件）
 ├── start.bat              # Windows 启动脚本
 └── .gitignore             # Git 忽略配置

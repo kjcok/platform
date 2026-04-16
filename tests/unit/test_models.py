@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 # 添加后端代码路径到系统路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'backend'))
 
-from models import init_db, get_session, Asset, Rule, ValidationHistory, Issue, ExceptionData
-from db_utils import (
+from models.base import init_db, get_session, Asset, Rule, ValidationHistory, Issue, ExceptionData
+from models.managers import (
     AssetManager, RuleManager, ValidationHistoryManager, 
     IssueManager, ExceptionDataManager
 )

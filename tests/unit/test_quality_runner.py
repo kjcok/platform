@@ -11,9 +11,9 @@ from datetime import datetime
 backend_path = os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'backend')
 sys.path.insert(0, backend_path)
 
-from models import init_db, get_session
-from db_utils import AssetManager, RuleManager
-from quality_runner import QualityRunner, StrongRuleFailedException
+from models.base import init_db, get_session
+from models.managers import AssetManager, RuleManager
+from engine.quality_runner import QualityRunner, StrongRuleFailedException
 
 
 class TestQualityRunner(unittest.TestCase):
@@ -53,7 +53,7 @@ class TestQualityRunner(unittest.TestCase):
     def tearDown(self):
         """每个测试后清理数据"""
         # 删除所有测试数据（按依赖关系逆序删除）
-        from models import ExceptionData, Issue, ValidationHistory, Rule, Asset
+        from models.base import ExceptionData, Issue, ValidationHistory, Rule, Asset
         
         self.session.query(ExceptionData).delete()
         self.session.query(Issue).delete()
@@ -186,7 +186,7 @@ class TestQualityRunner(unittest.TestCase):
         self.assertIsNotNone(history_id)
         
         # 查询校验历史
-        from db_utils import ValidationHistoryManager
+        from models.managers import ValidationHistoryManager
         history = ValidationHistoryManager.get_history(self.session, history_id)
         self.assertIsNotNone(history)
         self.assertIn(history.status, ['success', 'failed'])
@@ -216,7 +216,7 @@ class TestQualityRunner(unittest.TestCase):
         
         # 如果校验失败，应该创建了问题
         if not result['results'][0]['success']:
-            from db_utils import IssueManager
+            from models.managers import IssueManager
             issues = IssueManager.get_issues_by_status(self.session, 'pending')
             # 至少有一个问题被创建
             self.assertGreaterEqual(len(issues), 0)  # 可能通过也可能失败
@@ -297,7 +297,7 @@ class TestQualityRunner(unittest.TestCase):
     
     def test_convenience_function(self):
         """测试便捷函数 run_quality_check"""
-        from quality_runner import run_quality_check
+        from engine.quality_runner import run_quality_check
         
         # 创建规则
         rule = RuleManager.create_rule(

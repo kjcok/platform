@@ -9,30 +9,30 @@ import json
 import traceback
 
 # 导入数据库工具和执行引擎
-from db_utils import (
+from models.managers import (
     get_session, AssetManager, RuleManager, 
     ValidationHistoryManager, IssueManager, ExceptionDataManager
 )
-from quality_runner import QualityRunner, StrongRuleFailedException
+from engine.quality_runner import QualityRunner, StrongRuleFailedException
 
 # 导入数据模型（用于统计查询）
-from models import Asset, Rule, Issue, ValidationHistory
+from models.base import Asset, Rule, Issue, ValidationHistory
 
 # 导入第四阶段模块（可选）
 try:
-    from scheduler import scheduler, init_scheduler
+    from services.scheduler_service import scheduler, init_scheduler
     SCHEDULER_ENABLED = True
 except ImportError:
     SCHEDULER_ENABLED = False
 
 try:
-    from alert_notifier import alert_manager, init_default_alerts
+    from services.notification_service import alert_manager, init_default_alerts
     ALERT_ENABLED = True
 except ImportError:
     ALERT_ENABLED = False
 
 try:
-    from auth import jwt_auth, token_required, admin_required
+    from middleware.auth import jwt_auth, token_required, admin_required
     AUTH_ENABLED = True
 except ImportError:
     AUTH_ENABLED = False

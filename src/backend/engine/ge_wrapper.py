@@ -5,7 +5,7 @@ GE 测评执行引擎
 """
 import pandas as pd
 import great_expectations as gx
-from file_manager import get_file_path, check_file_exists
+from services.file_service import get_file_path, check_file_exists
 
 
 # 规则类型到 GE 方法的映射

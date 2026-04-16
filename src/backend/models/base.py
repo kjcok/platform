@@ -8,8 +8,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 import os
 
 # 获取项目根目录
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend
-PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))  # platform
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend/models
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # platform
 
 # 数据库配置
 DATABASE_PATH = os.path.join(PROJECT_ROOT, 'config', 'dataq.db')

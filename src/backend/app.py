@@ -3,9 +3,9 @@ Flask 主应用
 提供数据质量评估平台的 Web 接口
 """
 from flask import Flask, request, jsonify, send_from_directory, render_template
-from file_manager import save_uploaded_file, check_file_exists
-from ge_engine import run_evaluation
-from report_renderer import generate_report
+from services.file_service import save_uploaded_file, check_file_exists
+from engine.ge_wrapper import run_evaluation
+from services.report_service import generate_report
 import os
 
 # 导入第三阶段 API

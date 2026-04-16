@@ -18,11 +18,11 @@ class TestScheduler(unittest.TestCase):
     
     def setUp(self):
         """设置测试环境"""
-        from scheduler import TaskScheduler
+        from services.scheduler_service import TaskScheduler
         self.scheduler = TaskScheduler()
         
         # 创建测试资产
-        from db_utils import get_session, AssetManager
+        from models.managers import get_session, AssetManager
         self.session = get_session()
         self.asset = AssetManager.create_asset(
             session=self.session,
@@ -41,7 +41,7 @@ class TestScheduler(unittest.TestCase):
         
         # 删除测试资产
         if hasattr(self, 'asset'):
-            from db_utils import AssetManager
+            from models.managers import AssetManager
             AssetManager.delete_asset(self.session, self.asset.id)
             self.session.commit()
         
@@ -109,7 +109,7 @@ class TestScheduler(unittest.TestCase):
         """测试列出所有任务"""
         self.scheduler.start()
         
-        from db_utils import AssetManager
+        from models.managers import AssetManager
         
         # 添加多个任务
         asset2 = AssetManager.create_asset(
@@ -145,7 +145,7 @@ class TestAlertNotifier(unittest.TestCase):
     def test_email_alert_creation(self):
         """测试邮件告警对象创建"""
         try:
-            from alert_notifier import EmailAlert
+            from services.notification_service import EmailAlert
             alert = EmailAlert(
                 smtp_server='smtp.test.com',
                 smtp_port=587,
@@ -162,7 +162,7 @@ class TestAlertNotifier(unittest.TestCase):
     def test_wecom_alert_creation(self):
         """测试企业微信告警对象创建"""
         try:
-            from alert_notifier import WeComAlert
+            from services.notification_service import WeComAlert
             alert = WeComAlert(webhook_url='https://qyapi.weixin.qq.com/test')
             self.assertIsNotNone(alert)
             self.assertEqual(alert.webhook_url, 'https://qyapi.weixin.qq.com/test')
@@ -172,7 +172,7 @@ class TestAlertNotifier(unittest.TestCase):
     def test_dingtalk_alert_creation(self):
         """测试钉钉告警对象创建"""
         try:
-            from alert_notifier import DingTalkAlert
+            from services.notification_service import DingTalkAlert
             alert = DingTalkAlert(
                 webhook_url='https://oapi.dingtalk.com/test',
                 secret='test_secret'
@@ -185,7 +185,7 @@ class TestAlertNotifier(unittest.TestCase):
     def test_alert_manager(self):
         """测试告警管理器"""
         try:
-            from alert_notifier import AlertManager, EmailAlert
+            from services.notification_service import AlertManager, EmailAlert
             
             manager = AlertManager()
             
@@ -211,7 +211,7 @@ class TestAlertNotifier(unittest.TestCase):
     def test_format_failure_alert(self):
         """测试格式化校验失败告警"""
         try:
-            from alert_notifier import format_validation_failure_alert
+            from services.notification_service import format_validation_failure_alert
             
             title, message = format_validation_failure_alert(
                 asset_name='测试资产',
@@ -319,7 +319,7 @@ class TestJWTAuth(unittest.TestCase):
     def setUp(self):
         """设置测试环境"""
         try:
-            from auth import JWTAuth
+            from middleware.auth import JWTAuth
             # 使用更长的密钥（至少32字节）以避免警告
             self.jwt_auth = JWTAuth(
                 secret_key='test-secret-key-for-jwt-auth-32bytes!',

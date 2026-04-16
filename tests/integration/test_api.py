@@ -10,7 +10,7 @@ from datetime import datetime
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'backend'))
 
-from db_utils import (
+from models.managers import (
     get_session, AssetManager, RuleManager,
     ValidationHistoryManager, IssueManager, ExceptionDataManager
 )
@@ -222,6 +222,17 @@ class TestValidationHistoryAPI(unittest.TestCase):
             data_source='test_history.csv',
             asset_type='csv'
         )
+        
+        # 创建测试规则
+        self.rule = RuleManager.create_rule(
+            session=self.session,
+            asset_id=self.asset.id,
+            name='测试规则',
+            rule_type='completeness',
+            rule_template='字段非空校验',
+            ge_expectation='ExpectColumnValuesToNotBeNull',
+            column_name='email'
+        )
         self.session.commit()
     
     def tearDown(self):
@@ -233,38 +244,55 @@ class TestValidationHistoryAPI(unittest.TestCase):
     
     def test_create_validation_history(self):
         """测试创建校验历史"""
+        from datetime import datetime
         history = ValidationHistoryManager.create_history(
             session=self.session,
             asset_id=self.asset.id,
-            total_rules=5,
-            passed_rules=4,
-            failed_rules=1,
-            status='completed'
+            rule_id=self.rule.id,
+            start_time=datetime.now()
         )
-        self.session.commit()
+        # 更新额外字段
+        ValidationHistoryManager.update_history(
+            session=self.session,
+            history_id=history.id,
+            total_records=100,
+            failed_records=10,
+            pass_rate=90.0,
+            status='success'
+        )
+        self.session.refresh(history)
         
         self.assertIsNotNone(history)
-        self.assertEqual(history.total_rules, 5)
-        self.assertEqual(history.status, 'completed')
+        self.assertEqual(history.total_records, 100)
+        self.assertEqual(history.status, 'success')
     
     def test_get_history(self):
         """测试获取校验历史"""
+        from datetime import datetime
         # 先创建一个历史记录
         history = ValidationHistoryManager.create_history(
             session=self.session,
             asset_id=self.asset.id,
-            total_rules=3,
-            passed_rules=3,
-            failed_rules=0,
-            status='completed'
+            rule_id=self.rule.id,
+            start_time=datetime.now()
         )
+        # 更新额外字段
+        ValidationHistoryManager.update_history(
+            session=self.session,
+            history_id=history.id,
+            total_records=50,
+            failed_records=0,
+            pass_rate=100.0,
+            status='success'
+        )
+        self.session.refresh(history)
         self.session.commit()
         
         # 获取
         retrieved = ValidationHistoryManager.get_history(self.session, history.id)
         
         self.assertIsNotNone(retrieved)
-        self.assertEqual(retrieved.total_rules, 3)
+        self.assertEqual(retrieved.total_records, 50)
         
         # 清理
         ValidationHistoryManager.delete_history(self.session, history.id)
@@ -307,9 +335,12 @@ class TestIssueAPI(unittest.TestCase):
         )
         
         # 创建校验历史
+        from datetime import datetime
         self.history = ValidationHistoryManager.create_history(
             session=self.session,
             asset_id=self.asset.id,
+            rule_id=self.rule.id,
+            start_time=datetime.now(),
             total_rules=1,
             passed_rules=0,
             failed_rules=1,
@@ -445,9 +476,12 @@ class TestExceptionDataAPI(unittest.TestCase):
         )
         
         # 创建校验历史
+        from datetime import datetime
         self.history = ValidationHistoryManager.create_history(
             session=self.session,
             asset_id=self.asset.id,
+            rule_id=self.rule.id,
+            start_time=datetime.now(),
             total_rules=1,
             passed_rules=0,
             failed_rules=1,
@@ -466,6 +500,10 @@ class TestExceptionDataAPI(unittest.TestCase):
     
     def tearDown(self):
         """清理测试环境"""
+        # 先删除异常数据（外键依赖）
+        if hasattr(self, 'rule') and self.rule:
+            ExceptionDataManager.delete_exceptions_by_rule(self.session, self.rule.id)
+        
         if self.asset:
             AssetManager.delete_asset(self.session, self.asset.id)
             self.session.commit()
@@ -486,9 +524,9 @@ class TestExceptionDataAPI(unittest.TestCase):
         self.session.commit()
         
         self.assertIsNotNone(exception)
-        self.assertEqual(exception.record_index, 1)
-        self.assertEqual(exception.field_name, 'email')
-        self.assertEqual(exception.exception_value, 'null')
+        self.assertEqual(exception.row_number, 1)
+        self.assertEqual(exception.column_name, 'email')
+        self.assertEqual(exception.actual_value, 'null')
     
     def test_get_exceptions_by_issue(self):
         """测试根据问题ID获取异常数据"""
@@ -577,9 +615,10 @@ class TestStatisticsAPI(unittest.TestCase):
     def test_count_active_assets(self):
         """测试统计激活的资产数量"""
         from sqlalchemy import func
+        from models.base import Asset
         
         count = self.session.query(func.count()).filter(
-            AssetManager.model.is_active == True
+            Asset.is_active == True
         ).scalar()
         
         self.assertGreater(count, 0)
@@ -587,13 +626,14 @@ class TestStatisticsAPI(unittest.TestCase):
     def test_count_rules_by_strength(self):
         """测试按强度统计规则数量"""
         from sqlalchemy import func
+        from models.base import Rule
         
         strong_count = self.session.query(func.count()).filter(
-            RuleManager.model.strength == 'strong'
+            Rule.strength == 'strong'
         ).scalar()
         
         weak_count = self.session.query(func.count()).filter(
-            RuleManager.model.strength == 'weak'
+            Rule.strength == 'weak'
         ).scalar()
         
         self.assertGreaterEqual(strong_count, 0)
@@ -602,9 +642,10 @@ class TestStatisticsAPI(unittest.TestCase):
     def test_count_issues_by_status(self):
         """测试按状态统计问题数量"""
         from sqlalchemy import func
+        from models.base import Issue
         
         pending_count = self.session.query(func.count()).filter(
-            IssueManager.model.status == 'pending'
+            Issue.status == 'pending'
         ).scalar()
         
         self.assertGreaterEqual(pending_count, 0)

@@ -4,7 +4,7 @@
 """
 from datetime import datetime
 from sqlalchemy.orm import Session
-from models import Asset, Rule, ValidationHistory, Issue, ExceptionData, get_session
+from models.base import Asset, Rule, ValidationHistory, Issue, ExceptionData, get_session
 
 
 class AssetManager:
@@ -143,14 +143,19 @@ class ValidationHistoryManager:
     """校验历史管理器"""
     
     @staticmethod
-    def create_history(session: Session, asset_id: int, rule_id: int, start_time: datetime):
+    def create_history(session: Session, asset_id: int, rule_id: int = None, 
+                      start_time: datetime = None, **kwargs):
         """创建校验历史记录"""
         history = ValidationHistory(
             asset_id=asset_id,
             rule_id=rule_id,
-            start_time=start_time,
+            start_time=start_time or datetime.now(),
             status='running'
         )
+        # 支持额外参数
+        for key, value in kwargs.items():
+            if hasattr(history, key):
+                setattr(history, key, value)
         session.add(history)
         session.commit()
         session.refresh(history)
@@ -189,6 +194,16 @@ class ValidationHistoryManager:
         
         offset = (page - 1) * per_page
         return query.order_by(ValidationHistory.created_at.desc()).offset(offset).limit(per_page).all()
+    
+    @staticmethod
+    def delete_history(session: Session, history_id: int):
+        """删除校验历史"""
+        history = session.query(ValidationHistory).filter(ValidationHistory.id == history_id).first()
+        if history:
+            session.delete(history)
+            session.commit()
+            return True
+        return False
 
 
 class IssueManager:
@@ -258,6 +273,20 @@ class IssueManager:
         
         issue = session.query(Issue).filter(Issue.id == issue_id).first()
         if issue:
+            # 状态流转验证
+            if final_status and final_status != issue.status:
+                valid_transitions = {
+                    'pending': ['processing'],
+                    'processing': ['resolved', 'pending'],
+                    'resolved': ['closed', 'processing'],
+                    'closed': []
+                }
+                if final_status not in valid_transitions.get(issue.status, []):
+                    raise ValueError(
+                        f"Invalid status transition from '{issue.status}' to '{final_status}'. "
+                        f"Valid transitions: {valid_transitions.get(issue.status, [])}"
+                    )
+            
             if final_status:
                 issue.status = final_status
                 if final_status == 'resolved':
@@ -278,6 +307,16 @@ class IssueManager:
         if status:
             query = query.filter(Issue.status == status)
         return query.order_by(Issue.created_at.desc()).all()
+    
+    @staticmethod
+    def delete_issue(session: Session, issue_id: int):
+        """删除问题"""
+        issue = session.query(Issue).filter(Issue.id == issue_id).first()
+        if issue:
+            session.delete(issue)
+            session.commit()
+            return True
+        return False
 
 
 class ExceptionDataManager:
