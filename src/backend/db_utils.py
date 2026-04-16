@@ -43,6 +43,16 @@ class AssetManager:
         return query.all()
     
     @staticmethod
+    def list_assets(session: Session, page: int = 1, per_page: int = 20, is_active: bool = True):
+        """获取资产列表（支持分页）"""
+        query = session.query(Asset)
+        if is_active:
+            query = query.filter(Asset.is_active == True)
+        
+        offset = (page - 1) * per_page
+        return query.order_by(Asset.created_at.desc()).offset(offset).limit(per_page).all()
+    
+    @staticmethod
     def update_asset(session: Session, asset_id: int, **kwargs):
         """更新资产"""
         asset = session.query(Asset).filter(Asset.id == asset_id).first()
@@ -169,6 +179,16 @@ class ValidationHistoryManager:
         return session.query(ValidationHistory).filter(
             ValidationHistory.asset_id == asset_id
         ).order_by(ValidationHistory.created_at.desc()).limit(limit).all()
+    
+    @staticmethod
+    def list_histories(session: Session, asset_id: int = None, page: int = 1, per_page: int = 20):
+        """获取校验历史列表（支持分页和过滤）"""
+        query = session.query(ValidationHistory)
+        if asset_id:
+            query = query.filter(ValidationHistory.asset_id == asset_id)
+        
+        offset = (page - 1) * per_page
+        return query.order_by(ValidationHistory.created_at.desc()).offset(offset).limit(per_page).all()
 
 
 class IssueManager:
@@ -214,13 +234,38 @@ class IssueManager:
         ).order_by(Issue.created_at.desc()).limit(limit).all()
     
     @staticmethod
-    def update_issue_status(session: Session, issue_id: int, new_status: str):
+    def list_issues(session: Session, asset_id: int = None, status: str = None,
+                   priority: str = None, page: int = 1, per_page: int = 20):
+        """获取问题列表（支持分页和过滤）"""
+        query = session.query(Issue)
+        if asset_id:
+            query = query.filter(Issue.asset_id == asset_id)
+        if status:
+            query = query.filter(Issue.status == status)
+        if priority:
+            query = query.filter(Issue.priority == priority)
+        
+        offset = (page - 1) * per_page
+        return query.order_by(Issue.created_at.desc()).offset(offset).limit(per_page).all()
+    
+    @staticmethod
+    def update_issue_status(session: Session, issue_id: int, new_status: str = None,
+                           status: str = None, assignee: str = None,
+                           resolution_note: str = None):
         """更新问题状态"""
+        # 兼容新旧参数名
+        final_status = status or new_status
+        
         issue = session.query(Issue).filter(Issue.id == issue_id).first()
         if issue:
-            issue.status = new_status
-            if new_status == 'resolved':
-                issue.resolved_at = datetime.now()
+            if final_status:
+                issue.status = final_status
+                if final_status == 'resolved':
+                    issue.resolved_at = datetime.now()
+            if assignee:
+                issue.assignee = assignee
+            if resolution_note:
+                issue.resolution_note = resolution_note
             issue.updated_at = datetime.now()
             session.commit()
             session.refresh(issue)
@@ -243,7 +288,7 @@ class ExceptionDataManager:
                      rule_id: int, row_number: int = None, column_name: str = None,
                      actual_value: str = None, expected_value: str = None,
                      error_detail: str = None, full_record: str = None):
-        """添加异常数据"""
+        """添加异常数据（兼容旧接口）"""
         exception = ExceptionData(
             validation_history_id=validation_history_id,
             asset_id=asset_id,
@@ -261,10 +306,37 @@ class ExceptionDataManager:
         return exception
     
     @staticmethod
+    def archive_exception(session: Session, asset_id: int, rule_id: int,
+                         validation_history_id: int, issue_id: int = None,
+                         record_index: int = None, field_name: str = None,
+                         exception_value: str = None):
+        """归档异常数据（新接口，支持 issue_id）"""
+        exception = ExceptionData(
+            validation_history_id=validation_history_id,
+            asset_id=asset_id,
+            rule_id=rule_id,
+            issue_id=issue_id,
+            row_number=record_index,
+            column_name=field_name,
+            actual_value=exception_value
+        )
+        session.add(exception)
+        session.commit()
+        session.refresh(exception)
+        return exception
+    
+    @staticmethod
     def get_exceptions_by_history(session: Session, validation_history_id: int, limit: int = 100):
         """获取校验历史的异常数据"""
         return session.query(ExceptionData).filter(
             ExceptionData.validation_history_id == validation_history_id
+        ).limit(limit).all()
+    
+    @staticmethod
+    def get_exceptions_by_issue(session: Session, issue_id: int, limit: int = 100):
+        """根据问题ID获取异常数据"""
+        return session.query(ExceptionData).filter(
+            ExceptionData.issue_id == issue_id
         ).limit(limit).all()
     
     @staticmethod
@@ -273,3 +345,12 @@ class ExceptionDataManager:
         return session.query(ExceptionData).filter(
             ExceptionData.validation_history_id == validation_history_id
         ).count()
+    
+    @staticmethod
+    def delete_exceptions_by_rule(session: Session, rule_id: int):
+        """删除规则相关的异常数据"""
+        count = session.query(ExceptionData).filter(
+            ExceptionData.rule_id == rule_id
+        ).delete()
+        session.commit()
+        return count

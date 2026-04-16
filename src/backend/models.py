@@ -216,6 +216,7 @@ class ExceptionData(Base):
                                   comment='关联的校验记录ID')
     asset_id = Column(Integer, ForeignKey('assets.id'), nullable=False, comment='关联的资产ID')
     rule_id = Column(Integer, ForeignKey('rules.id'), nullable=False, comment='关联的规则ID')
+    issue_id = Column(Integer, ForeignKey('issues.id'), nullable=True, comment='关联的问题ID')
     row_number = Column(Integer, nullable=True, comment='原始数据行号')
     column_name = Column(String(256), nullable=True, comment='异常字段名')
     actual_value = Column(Text, nullable=True, comment='实际值')
@@ -228,6 +229,7 @@ class ExceptionData(Base):
     validation_history = relationship('ValidationHistory')
     asset = relationship('Asset')
     rule = relationship('Rule')
+    issue = relationship('Issue')
     
     def to_dict(self):
         return {

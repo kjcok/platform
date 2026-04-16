@@ -8,7 +8,13 @@ from ge_engine import run_evaluation
 from report_renderer import generate_report
 import os
 
+# 导入第三阶段 API
+from api import register_api
+
 app = Flask(__name__, template_folder='../../src/frontend/templates')
+
+# 注册 RESTful API
+register_api(app)
 
 # 配置上传和报告目录（使用绝对路径）
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend
