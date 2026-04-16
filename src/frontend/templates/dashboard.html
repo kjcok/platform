@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}质量大盘 - DataQ 数质宝{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h2 class="page-title">质量大盘</h2>
+    
+    <!-- 统计卡片 -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+                <div class="stat-value" id="total-assets">-</div>
+                <div class="stat-label">监控资产</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-info">
+                <div class="stat-value" id="total-rules">-</div>
+                <div class="stat-label">质量规则</div>
+            </div>
+        </div>
+        
+        <div class="stat-card warning">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+                <div class="stat-value" id="pending-issues">-</div>
+                <div class="stat-label">待处理问题</div>
+            </div>
+        </div>
+        
+        <div class="stat-card success">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <div class="stat-value" id="success-rate">-%</div>
+                <div class="stat-label">校验成功率</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图表区域 -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>校验趋势（最近7天）</h3>
+            <canvas id="validation-trend-chart"></canvas>
+        </div>
+        
+        <div class="chart-card">
+            <h3>问题状态分布</h3>
+            <canvas id="issue-distribution-chart"></canvas>
+        </div>
+    </div>
+    
+    <!-- 最近问题列表 -->
+    <div class="recent-issues">
+        <h3>最近问题</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>问题ID</th>
+                    <th>资产名称</th>
+                    <th>规则名称</th>
+                    <th>优先级</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="recent-issues-table">
+                <tr>
+                    <td colspan="7" class="loading">加载中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

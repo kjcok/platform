@@ -11,12 +11,7 @@ import os
 # 导入第三阶段 API
 from api import register_api
 
-app = Flask(__name__, template_folder='../../src/frontend/templates')
-
-# 注册 RESTful API
-register_api(app)
-
-# 配置上传和报告目录（使用绝对路径）
+# 配置路径（使用绝对路径）
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend
 PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))  # platform
 UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
@@ -26,11 +21,46 @@ REPORTS_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'reports')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(REPORTS_FOLDER, exist_ok=True)
 
+# 初始化 Flask 应用
+app = Flask(
+    __name__,
+    template_folder=os.path.join(PROJECT_ROOT, 'src', 'frontend', 'templates'),
+    static_folder=os.path.join(PROJECT_ROOT, 'src', 'frontend', 'static'),
+    static_url_path='/static'
+)
+
+# 注册 RESTful API
+register_api(app)
+
 
 @app.route('/')
 def index():
-    """主页"""
-    return render_template('index.html')
+    """主页 - 质量大盘"""
+    return render_template('dashboard.html')
+
+
+@app.route('/dashboard')
+def dashboard():
+    """质量大盘"""
+    return render_template('dashboard.html')
+
+
+@app.route('/assets')
+def assets():
+    """资产管理"""
+    return render_template('assets.html')
+
+
+@app.route('/issues')
+def issues():
+    """问题管理"""
+    return render_template('issues.html')
+
+
+@app.route('/validations')
+def validations():
+    """校验历史"""
+    return render_template('validations.html')
 
 
 @app.route('/api/upload', methods=['POST'])

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}校验历史 - DataQ 数质宝{% endblock %}
+
+{% block content %}
+<div class="validations-page">
+    <h2 class="page-title">校验历史</h2>
+    
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>校验ID</th>
+                <th>资产名称</th>
+                <th>规则数</th>
+                <th>通过率</th>
+                <th>状态</th>
+                <th>执行时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="validations-table-body">
+            <tr>
+                <td colspan="7" class="loading">加载中...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/validations.js') }}"></script>
+{% endblock %}

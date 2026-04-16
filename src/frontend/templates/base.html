@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DataQ 数质宝{% endblock %}</title>
+    
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <h1>📊 DataQ 数质宝</h1>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">质量大盘</a></li>
+                <li><a href="{{ url_for('assets') }}" class="{% if request.endpoint == 'assets' %}active{% endif %}">资产管理</a></li>
+                <li><a href="{{ url_for('issues') }}" class="{% if request.endpoint == 'issues' %}active{% endif %}">问题管理</a></li>
+                <li><a href="{{ url_for('validations') }}" class="{% if request.endpoint == 'validations' %}active{% endif %}">校验历史</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 DataQ 数质宝 - 数据质量管理平台</p>
+        </div>
+    </footer>
+
+    <!-- 引入脚本 -->
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

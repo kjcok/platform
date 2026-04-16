@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}资产管理 - DataQ 数质宝{% endblock %}
+
+{% block content %}
+<div class="assets-page">
+    <div class="page-header">
+        <h2 class="page-title">资产管理</h2>
+        <button class="btn btn-primary" onclick="showCreateAssetModal()">+ 新建资产</button>
+    </div>
+    
+    <!-- 搜索和过滤 -->
+    <div class="filter-bar">
+        <input type="text" id="search-input" placeholder="搜索资产名称..." class="search-input">
+        <select id="status-filter" class="filter-select">
+            <option value="">全部状态</option>
+            <option value="active">已启用</option>
+            <option value="inactive">已禁用</option>
+        </select>
+    </div>
+    
+    <!-- 资产列表 -->
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>资产名称</th>
+                <th>数据源</th>
+                <th>类型</th>
+                <th>负责人</th>
+                <th>规则数</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="assets-table-body">
+            <tr>
+                <td colspan="9" class="loading">加载中...</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- 分页 -->
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- 创建/编辑资产模态框 -->
+<div id="asset-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">新建资产</h3>
+            <span class="close" onclick="closeAssetModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="asset-form">
+                <input type="hidden" id="asset-id">
+                
+                <div class="form-group">
+                    <label for="asset-name">资产名称 *</label>
+                    <input type="text" id="asset-name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="data-source">数据源 *</label>
+                    <input type="text" id="data-source" placeholder="文件路径或数据库表名" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="asset-type">资产类型</label>
+                    <select id="asset-type">
+                        <option value="csv">CSV 文件</option>
+                        <option value="excel">Excel 文件</option>
+                        <option value="database">数据库表</option>
+                        <option value="api">API 接口</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="owner">负责人</label>
+                    <input type="text" id="owner" placeholder="负责人姓名">
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">描述</label>
+                    <textarea id="description" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeAssetModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/assets.js') }}"></script>
+{% endblock %}
