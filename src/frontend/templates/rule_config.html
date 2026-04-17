@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}规则配置 - DataQ 数质宝{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 单页布局 */
+    .rule-config-container {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 2rem;
+        margin-top: 2rem;
+        min-height: calc(100vh - 200px);
+    }
+    
+    /* 左侧边栏 */
+    .config-sidebar {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        height: fit-content;
+        position: sticky;
+        top: 100px;
+    }
+    
+    .sidebar-section {
+        margin-bottom: 2rem;
+    }
+    
+    .sidebar-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    .sidebar-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #667eea;
+    }
+    
+    /* 模板列表 */
+    .template-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    /* 分类项 */
+    .category-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    
+    .category-header {
+        padding: 0.875rem;
+        background: #f8f9fa;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        user-select: none;
+    }
+    
+    .category-header:hover {
+        background: #edf2f7;
+    }
+    
+    .category-icon {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    .category-name {
+        flex: 1;
+        font-weight: 600;
+        color: #333;
+        font-size: 0.9rem;
+    }
+    
+    .category-arrow {
+        font-size: 0.7rem;
+        color: #999;
+        transition: transform 0.2s;
+    }
+    
+    /* Expectation列表 */
+    .expectation-list {
+        background: white;
+        border-top: 1px solid #e0e0e0;
+    }
+    
+    .expectation-item {
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-left: 3px solid transparent;
+    }
+    
+    .expectation-item:hover {
+        background: #f8f9ff;
+        border-left-color: #667eea;
+    }
+    
+    .expectation-item.selected {
+        background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+        border-left-color: #667eea;
+    }
+    
+    .expectation-name {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 0.85rem;
+    }
+    
+    .expectation-desc {
+        font-size: 0.75rem;
+        color: #666;
+        line-height: 1.4;
+    }
+    
+    /* 右侧主区域 */
+    .config-main {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .config-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .config-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .config-subtitle {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    /* 表单区域 */
+    .form-section {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    
+    .form-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    /* 字段选择器 */
+    .field-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.75rem;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        background: white;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .field-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 0.9rem;
+    }
+    
+    .field-checkbox:hover {
+        background: #f5f7fa;
+    }
+    
+    .field-checkbox input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    
+    .field-type {
+        margin-left: auto;
+        font-size: 0.7rem;
+        color: #999;
+        background: #f0f0f0;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    
+    /* SQL预览 */
+    .sql-preview {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 1rem;
+        border-radius: 6px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    /* 操作按钮 */
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid #e0e0e0;
+    }
+    
+    /* 加载遮罩 */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    .loading-overlay.show {
+        display: flex;
+    }
+    
+    .loading-spinner {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        text-align: center;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* 响应式 */
+    @media (max-width: 1024px) {
+        .rule-config-container {
+            grid-template-columns: 1fr;
+        }
+        
+        .config-sidebar {
+            position: static;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rule-config-container">
+    <!-- 左侧边栏 -->
+    <aside class="config-sidebar">
+        <!-- 资产选择 -->
+        <div class="sidebar-section" id="asset-selector-section" style="display: none;">
+            <div class="sidebar-title">🏠 选择资产</div>
+            <div class="form-group">
+                <select id="asset-selector" class="form-select" onchange="onAssetChange()">
+                    <option value="">-- 请选择资产 --</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- 模板选择 -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">📋 选择规则模板</div>
+            <div class="template-list" id="template-list">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+    </aside>
+    
+    <!-- 右侧主区域 -->
+    <main class="config-main">
+        <div class="config-header">
+            <h2 class="config-title" id="config-title">规则配置</h2>
+            <p class="config-subtitle" id="config-subtitle">请先选择规则模板和资产</p>
+        </div>
+        
+        <form id="rule-config-form" onsubmit="return false;">
+            <!-- 基本信息 -->
+            <div class="form-section">
+                <div class="form-section-title">基本信息</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">规则名称 <span class="required">*</span></label>
+                        <input type="text" id="rule-name" class="form-input" placeholder="请输入规则名称" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">规则强度 <span class="required">*</span></label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="strength" value="strong" checked>
+                                <span>强规则 - 校验失败时阻断流程</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="strength" value="weak">
+                                <span>弱规则 - 校验失败时仅记录告警</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">规则描述</label>
+                    <textarea id="rule-description" class="form-textarea" rows="2" placeholder="描述这个规则的用途"></textarea>
+                </div>
+            </div>
+            
+            <!-- 字段选择 -->
+            <div class="form-section" id="field-selection-section" style="display: none;">
+                <div class="form-section-title">选择字段</div>
+                <div class="field-selector" id="field-selector">
+                    <!-- 动态加载字段列表 -->
+                </div>
+                <div class="form-hint" style="margin-top: 0.5rem;">
+                    💡 提示：选择一个字段进行校验
+                </div>
+            </div>
+            
+            <!-- 对比列选择（用于列对校验） -->
+            <div class="form-section" id="column-b-section" style="display: none;">
+                <div class="form-section-title">选择对比列</div>
+                <div class="form-group">
+                    <select id="param-column_B" class="form-input" onchange="updateCreateButtonState()">
+                        <option value="">-- 请选择对比列 --</option>
+                    </select>
+                </div>
+                <div class="form-hint">
+                    💡 提示：选择要与主字段进行比较的列
+                </div>
+            </div>
+            
+            <!-- 其他参数 -->
+            <div class="form-section" id="other-params-section" style="display: none;">
+                <div class="form-section-title">规则参数</div>
+                <div id="other-params">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+            
+            <!-- SQL预览 -->
+            <div class="form-section">
+                <div class="form-section-title">SQL预览</div>
+                <div class="sql-preview" id="sql-preview">
+                    -- 选择模板和字段后将显示SQL预览
+                </div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="action-buttons">
+                <button type="button" class="btn btn-secondary" onclick="cancelConfig()">取消</button>
+                <button type="button" class="btn btn-primary" onclick="createRule()" id="create-btn" disabled>创建规则</button>
+            </div>
+        </form>
+    </main>
+</div>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <div>正在创建规则...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/rule_config_v2.js') }}"></script>
+{% endblock %}

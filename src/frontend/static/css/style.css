@@ -121,6 +121,22 @@ body {
     color: #48bb78;
 }
 
+/* 可点击的统计卡片 */
+.stat-card.clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.stat-card.clickable:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+    background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+}
+
+.stat-card.clickable:active {
+    transform: translateY(-2px);
+}
+
 /* 图表区域 */
 .charts-grid {
     display: grid;
@@ -383,6 +399,80 @@ body {
     color: #2a4365;
 }
 
+/* 表单区域 */
+.form-section {
+    margin-bottom: 1.5rem;
+}
+
+.form-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+/* 文件上传区域 */
+.file-upload-area {
+    border: 2px dashed #cbd5e0;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #f7fafc;
+}
+
+.file-upload-area:hover {
+    border-color: #667eea;
+    background: #edf2f7;
+}
+
+.file-upload-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.file-upload-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #2d3748;
+    margin-bottom: 0.25rem;
+}
+
+.file-upload-hint {
+    font-size: 0.875rem;
+    color: #718096;
+}
+
+/* 文件信息 */
+.file-info-item {
+    padding: 0.75rem;
+    background: #f0f9ff;
+    border-radius: 6px;
+    border-left: 4px solid #4299e1;
+}
+
+/* 模态框大型 */
+.modal-large .modal-content {
+    max-width: 800px;
+}
+
+/* 表单行 */
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* 小按钮 */
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
 /* 页脚 */
 .footer {
     background: #2d3748;
@@ -423,5 +513,91 @@ body {
     
     .search-input {
         max-width: 100%;
+    }
+}
+
+/* Toast 消息提示 */
+.toast-message {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    min-width: 300px;
+    max-width: 500px;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 9999;
+    animation: slideIn 0.3s ease-out;
+    transition: all 0.3s ease;
+}
+
+.toast-message.toast-hide {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast-success {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+}
+
+.toast-error {
+    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+    color: white;
+}
+
+.toast-warning {
+    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+    color: white;
+}
+
+.toast-info {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+}
+
+.toast-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.toast-text {
+    flex: 1;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    opacity: 1;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
     }
 }

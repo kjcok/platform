@@ -3,6 +3,7 @@
 基于数据库配置动态执行 Great Expectations 校验
 支持强/弱规则控制、异常数据归档、问题工单自动生成
 """
+import os
 import pandas as pd
 import json
 from datetime import datetime
@@ -57,7 +58,7 @@ class QualityRunner:
     
     def run_asset_validation(self, asset_id: int, rule_ids: list = None, 
                             data_source: str = None, auto_archive: bool = True,
-                            auto_create_issue: bool = True):
+                            auto_create_issue: bool = True, trigger_type: str = 'manual'):
         """
         执行资产的质量校验
         
@@ -67,6 +68,7 @@ class QualityRunner:
             data_source: 可选的数据源路径，覆盖资产配置的data_source
             auto_archive: 是否自动归档异常数据
             auto_create_issue: 是否自动创建问题工单
+            trigger_type: 触发方式 ('manual'/'scheduled'/'api')
             
         Returns:
             dict: 包含所有规则的校验结果
@@ -105,7 +107,7 @@ class QualityRunner:
         
         for rule in rules:
             try:
-                result = self._execute_single_rule(rule, df, asset_id, auto_archive)
+                result = self._execute_single_rule(rule, df, asset_id, auto_archive, trigger_type)
                 results.append(result)
                 
                 # 检查强规则是否失败
@@ -142,11 +144,16 @@ class QualityRunner:
         return {
             'asset_id': asset_id,
             'asset_name': asset.name,
+            'status': 'success' if all(r.get('success') for r in results) else 'failed',
+            'start_time': datetime.now().isoformat(),
+            'end_time': datetime.now().isoformat(),
             'total_rules': len(rules),
             'passed_rules': sum(1 for r in results if r.get('success')),
             'failed_rules': sum(1 for r in results if not r.get('success')),
+            'success_rate': round(sum(1 for r in results if r.get('success')) / len(rules) * 100, 1) if len(rules) > 0 else 0,
             'results': results,
-            'timestamp': datetime.now().isoformat()
+            'trigger_type': trigger_type,
+            'error_message': None
         }
     
     def _load_data(self, source_path: str, asset_type: str) -> pd.DataFrame:
@@ -154,28 +161,135 @@ class QualityRunner:
         加载数据
         
         Args:
-            source_path: 数据源路径
+            source_path: 数据源路径（可能是相对路径或完整路径，或数据库连接URL）
             asset_type: 资产类型
             
         Returns:
             DataFrame
         """
         try:
-            if asset_type == 'csv' or source_path.endswith('.csv'):
-                df = pd.read_csv(source_path)
-            elif asset_type in ['excel', 'xlsx'] or source_path.endswith(('.xlsx', '.xls')):
-                df = pd.read_excel(source_path)
+            # 处理数据库类型数据源
+            if asset_type == 'database' or source_path.startswith(('postgresql://', 'postgres://', 'mysql://', 'sqlite://')):
+                # 解析连接URL，提取连接字符串和表名
+                # 
+                # 支持两种格式：
+                # 格式1（推荐）: postgresql://user:pass@host:port/database/newtable
+                #              -> database = database, table = newtable
+                # 格式2: postgresql://user:pass@host:port/database.schema.newtable
+                #              -> database = database, table = schema.newtable
+                # 格式3: postgresql://user:pass@host:port/database.newtable
+                #              -> database = database, table = newtable  (这里database是不带后缀的)
+                #
+                # 我们需要处理格式3，其中数据库名和表名用点号分隔在同一部分
+                # 
+                import urllib.parse
+                from sqlalchemy import create_engine
+                
+                # 解析URL
+                # 格式: scheme://netloc/path
+                parsed = urllib.parse.urlparse(source_path)
+                
+                # path 部分可能包含 database/table 或 database.table
+                path = parsed.path.strip('/')
+                
+                if '/' in path:
+                    # 格式1: database/table
+                    database_name, table_name = path.split('/', 1)
+                    # 重建连接URL：只到数据库部分
+                    new_path = '/' + database_name
+                    parsed = parsed._replace(path=new_path)
+                    connection_url = urllib.parse.urlunparse(parsed)
+                elif '.' in path:
+                    # 格式3: database.table (或 database.schema.table)
+                    # 找到最后一个点号，点号前面是数据库名，点号后面是表名
+                    # 如果有多个点号，最后一个点号分隔数据库和表
+                    last_dot_index = path.rfind('.')
+                    if last_dot_index > 0:
+                        database_name = path[:last_dot_index]
+                        table_name = path[last_dot_index+1:]
+                        # 重建连接URL：只到数据库部分
+                        new_path = '/' + database_name
+                        parsed = parsed._replace(path=new_path)
+                        connection_url = urllib.parse.urlunparse(parsed)
+                    else:
+                        # 点号在开头，不常见
+                        raise ValueError(
+                            f"数据库URL格式错误: 无法从URL提取表名，请使用格式: "
+                            f"postgresql://user:password@host:port/database/table"
+                        )
+                else:
+                    # 只有数据库名，没有表名
+                    raise ValueError(
+                        f"数据库URL格式错误: 无法从URL提取表名，请将表名放在URL最后，格式为: "
+                        f"postgresql://user:password@host:port/database/table 或 "
+                        f"postgresql://user:password@host:port/database.table"
+                    )
+                
+                # 创建SQLAlchemy引擎并读取数据
+                engine = create_engine(connection_url)
+                
+                # 读取整张表
+                df = pd.read_sql_table(table_name, engine)
+                engine.dispose()
+                
+                print(f"[INFO] 成功从数据库加载数据: {table_name}")
+                print(f"[INFO] 数据规模: {len(df)} 行, {len(df.columns)} 列")
+                return df
+            
+            # 处理文件类型（CSV/Excel）
             else:
-                raise ValueError(f"不支持的资产类型: {asset_type}")
+                # 构建完整的文件路径
+                # 如果source_path不是绝对路径，则需要构建完整路径
+                if not os.path.isabs(source_path):
+                    # 获取项目根目录和上传目录
+                    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend/engine
+                    PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # platform
+                    
+                    # 尝试多个可能的上传目录
+                    possible_paths = [
+                        os.path.join(PROJECT_ROOT, 'output', 'data'),  # platform/output/data
+                        os.path.join(PROJECT_ROOT, 'src', 'output', 'data'),  # platform/src/output/data (兼容旧版本)
+                    ]
+                    
+                    # 查找文件
+                    file_path = None
+                    for base_path in possible_paths:
+                        candidate = os.path.join(base_path, source_path)
+                        if os.path.exists(candidate):
+                            file_path = candidate
+                            break
+                    
+                    # 如果都没找到，使用第一个路径（会抛出FileNotFoundError）
+                    if file_path is None:
+                        file_path = os.path.join(possible_paths[0], source_path)
+                else:
+                    file_path = source_path
+                
+                # 检查文件是否存在
+                if not os.path.exists(file_path):
+                    raise FileNotFoundError(f"文件不存在: {file_path}")
+                
+                if asset_type == 'csv' or source_path.endswith('.csv'):
+                    df = pd.read_csv(file_path)
+                elif asset_type in ['excel', 'xlsx'] or source_path.endswith(('.xlsx', '.xls')):
+                    df = pd.read_excel(file_path)
+                elif asset_type == 'table':
+                    # table类型默认按CSV处理（向后兼容）
+                    df = pd.read_csv(file_path)
+                else:
+                    raise ValueError(f"不支持的资产类型: {asset_type}")
+                
+                print(f"[INFO] 成功加载数据: {file_path}")
+                print(f"[INFO] 数据规模: {len(df)} 行, {len(df.columns)} 列")
+                return df
             
-            print(f"[INFO] 成功加载数据: {len(df)} 行, {len(df.columns)} 列")
-            return df
-            
+        except FileNotFoundError:
+            raise
         except Exception as e:
             raise ValueError(f"加载数据失败: {str(e)}")
     
     def _execute_single_rule(self, rule, df: pd.DataFrame, asset_id: int, 
-                            auto_archive: bool = True) -> dict:
+                            auto_archive: bool = True, trigger_type: str = 'manual') -> dict:
         """
         执行单个规则的校验
         
@@ -184,6 +298,7 @@ class QualityRunner:
             df: 数据DataFrame
             asset_id: 资产ID
             auto_archive: 是否自动归档异常数据
+            trigger_type: 触发方式
             
         Returns:
             dict: 校验结果
@@ -193,7 +308,8 @@ class QualityRunner:
             session=self.session,
             asset_id=asset_id,
             rule_id=rule.id,
-            start_time=datetime.now()
+            start_time=datetime.now(),
+            trigger_type=trigger_type
         )
         
         try:
@@ -223,23 +339,25 @@ class QualityRunner:
             expectation_class_name = ''.join(word.capitalize() for word in ge_method_name.replace('expect_', '').split('_'))
             expectation_class = getattr(gx.expectations, f'Expect{expectation_class_name}', None)
             
-            if expectation_class:
-                exp_params = {'column': rule.column_name}
-                
-                # 解析参数
-                if rule.parameters:
-                    try:
-                        params = json.loads(rule.parameters)
-                        if 'min_value' in params:
-                            exp_params['min_value'] = params['min_value']
-                        if 'max_value' in params:
-                            exp_params['max_value'] = params['max_value']
-                        if 'value_set' in params:
-                            exp_params['value_set'] = params['value_set']
-                    except:
-                        pass
-                
-                suite.add_expectation(expectation_class(**exp_params))
+            if not expectation_class:
+                raise ValueError(f"无法找到GE期望类: Expect{expectation_class_name}")
+            
+            exp_params = {'column': rule.column_name}
+            
+            # 解析参数
+            if rule.parameters:
+                try:
+                    params = json.loads(rule.parameters)
+                    if 'min_value' in params:
+                        exp_params['min_value'] = params['min_value']
+                    if 'max_value' in params:
+                        exp_params['max_value'] = params['max_value']
+                    if 'value_set' in params:
+                        exp_params['value_set'] = params['value_set']
+                except:
+                    pass
+            
+            suite.add_expectation(expectation_class(**exp_params))
             
             # 创建 Validation Definition
             validation_definition = gx.ValidationDefinition(
@@ -255,13 +373,16 @@ class QualityRunner:
             result_dict = result.to_json_dict()
             if result_dict.get('results'):
                 detail = result_dict['results'][0]
-                success = detail.get('success', False)
+                ge_success = detail.get('success', False)  # GE的原始success字段
                 result_data = detail.get('result', {})
                 unexpected_count = result_data.get('unexpected_count', 0)
                 unexpected_percent = result_data.get('unexpected_percent', 0.0)
                 total_records = result_data.get('element_count', len(df))
                 failed_records = unexpected_count
                 pass_rate = round((1 - unexpected_percent / 100) * 100, 2) if unexpected_percent < 100 else 0.0
+                
+                # 根据通过率判断规则是否成功（通过率>=80%算成功）
+                success = pass_rate >= 80.0
                 
                 sample_unexpected = result_data.get('partial_unexpected_list', [])[:10]
                 
@@ -350,12 +471,12 @@ class QualityRunner:
         
         Args:
             rule_type: 规则类型
-            ge_expectation: GE期望类名
+            ge_expectation: GE期望类名或方法名
             
         Returns:
             str: GE方法名
         """
-        # 从GE期望类名反推方法名
+        # 如果ge_expectation以Expect开头，说明是类名，需要转换为方法名
         # 例如: ExpectColumnValuesToNotBeNull -> expect_column_values_to_not_be_null
         if ge_expectation.startswith('Expect'):
             method_name = ge_expectation[6:]  # 去掉'Expect'
@@ -363,7 +484,9 @@ class QualityRunner:
             import re
             method_name = re.sub(r'(?<!^)(?=[A-Z])', '_', method_name).lower()
             return method_name
-        return rule_type
+        # 如果不以Expect开头，说明已经是方法名（下划线格式），直接返回
+        # 例如: expect_column_values_to_not_be_null -> expect_column_values_to_not_be_null
+        return ge_expectation
     
     def _archive_exceptions(self, history_id: int, asset_id: int, rule_id: int,
                            detail: dict, df: pd.DataFrame):

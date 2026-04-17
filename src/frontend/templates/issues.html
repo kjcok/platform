@@ -2,30 +2,298 @@
 
 {% block title %}问题管理 - DataQ 数质宝{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* 统计卡片 */
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-card.pending {
+        border-left: 4px solid #fc8181;
+    }
+    
+    .stat-card.processing {
+        border-left: 4px solid #f6ad55;
+    }
+    
+    .stat-card.resolved {
+        border-left: 4px solid #48bb78;
+    }
+    
+    .stat-card.total {
+        border-left: 4px solid #667eea;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-card.pending .stat-value { color: #fc8181; }
+    .stat-card.processing .stat-value { color: #f6ad55; }
+    .stat-card.resolved .stat-value { color: #48bb78; }
+    .stat-card.total .stat-value { color: #667eea; }
+    
+    .stat-label {
+        color: #666;
+        font-size: 0.875rem;
+    }
+    
+    /* 筛选和操作栏 */
+    .action-bar {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .action-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .batch-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .batch-actions button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* 复选框列 */
+    .checkbox-col {
+        width: 40px;
+        text-align: center;
+    }
+    
+    /* 模态框 */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal.show {
+        display: block;
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 2rem;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 800px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #eee;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        color: #333;
+    }
+    
+    .close-btn {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #999;
+        cursor: pointer;
+        background: none;
+        border: none;
+    }
+    
+    .close-btn:hover {
+        color: #333;
+    }
+    
+    .modal-body {
+        margin-bottom: 1.5rem;
+    }
+    
+    .detail-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .detail-section h4 {
+        color: #667eea;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+    }
+    
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .detail-label {
+        font-size: 0.875rem;
+        color: #666;
+    }
+    
+    .detail-value {
+        font-size: 1rem;
+        color: #333;
+        font-weight: 500;
+    }
+    
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        padding-top: 1rem;
+        border-top: 2px solid #eee;
+    }
+    
+    /* 状态选择器 */
+    .status-selector {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .status-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid #ddd;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .status-btn:hover {
+        border-color: #667eea;
+    }
+    
+    .status-btn.active {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #999;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="issues-page">
     <h2 class="page-title">问题管理</h2>
     
-    <div class="filter-bar">
-        <select id="status-filter" class="filter-select">
-            <option value="">全部状态</option>
-            <option value="pending">待处理</option>
-            <option value="processing">处理中</option>
-            <option value="resolved">已解决</option>
-            <option value="closed">已关闭</option>
-        </select>
-        
-        <select id="priority-filter" class="filter-select">
-            <option value="">全部优先级</option>
-            <option value="high">高</option>
-            <option value="medium">中</option>
-            <option value="low">低</option>
-        </select>
+    <!-- 统计卡片 -->
+    <div class="stats-cards">
+        <div class="stat-card pending" onclick="filterByStatus('pending')">
+            <div class="stat-value" id="pending-count">-</div>
+            <div class="stat-label">待处理</div>
+        </div>
+        <div class="stat-card processing" onclick="filterByStatus('processing')">
+            <div class="stat-value" id="processing-count">-</div>
+            <div class="stat-label">处理中</div>
+        </div>
+        <div class="stat-card resolved" onclick="filterByStatus('resolved')">
+            <div class="stat-value" id="resolved-count">-</div>
+            <div class="stat-label">已解决</div>
+        </div>
+        <div class="stat-card total" onclick="filterByStatus('')">
+            <div class="stat-value" id="total-count">-</div>
+            <div class="stat-label">全部问题</div>
+        </div>
     </div>
     
+    <!-- 筛选和操作栏 -->
+    <div class="action-bar">
+        <div class="action-row">
+            <div class="filter-group">
+                <select id="status-filter" class="filter-select" onchange="loadIssues()">
+                    <option value="">全部状态</option>
+                    <option value="pending">待处理</option>
+                    <option value="processing">处理中</option>
+                    <option value="resolved">已解决</option>
+                    <option value="closed">已关闭</option>
+                </select>
+                
+                <select id="priority-filter" class="filter-select" onchange="loadIssues()">
+                    <option value="">全部优先级</option>
+                    <option value="high">高</option>
+                    <option value="medium">中</option>
+                    <option value="low">低</option>
+                </select>
+                
+                <input type="text" id="search-input" placeholder="搜索问题..." class="filter-select" oninput="debounceLoadIssues()">
+            </div>
+            
+            <div class="batch-actions">
+                <button class="btn btn-secondary" id="batch-ignore-btn" onclick="batchIgnore()" disabled>
+                    忽略选中
+                </button>
+                <button class="btn btn-primary" id="batch-recheck-btn" onclick="batchRecheck()" disabled>
+                    重新校验
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 问题列表 -->
     <table class="data-table">
         <thead>
             <tr>
+                <th class="checkbox-col">
+                    <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+                </th>
                 <th>问题ID</th>
                 <th>资产名称</th>
                 <th>规则名称</th>
@@ -38,10 +306,28 @@
         </thead>
         <tbody id="issues-table-body">
             <tr>
-                <td colspan="8" class="loading">加载中...</td>
+                <td colspan="9" class="loading">加载中...</td>
             </tr>
         </tbody>
     </table>
+</div>
+
+<!-- 问题详情模态框 -->
+<div id="issue-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>问题详情</h3>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <!-- 动态内容 -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+            <button class="btn btn-warning" onclick="recheckIssue()">重新校验</button>
+            <button class="btn btn-primary" onclick="updateIssueStatus()">更新状态</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

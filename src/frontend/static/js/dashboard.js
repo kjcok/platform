@@ -42,7 +42,8 @@ function updateStatsCards(data) {
 async function loadRecentIssues() {
     try {
         const response = await apiRequest(`${API_BASE_URL}/issues?per_page=10`);
-        const issues = response.data.issues;
+        // 兼容两种数据格式
+        const issues = Array.isArray(response.data) ? response.data : (response.data.issues || []);
         
         const tbody = document.getElementById('recent-issues-table');
         
@@ -159,5 +160,6 @@ function drawIssueDistributionChart(issuesData) {
 
 // 查看问题详情
 function viewIssue(issueId) {
-    window.location.href = `/issues/${issueId}`;
+    // 跳转到问题管理页面并打开详情
+    window.location.href = `/issues?issue_id=${issueId}`;
 }

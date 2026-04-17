@@ -47,7 +47,7 @@
 
 <!-- 创建/编辑资产模态框 -->
 <div id="asset-modal" class="modal" style="display: none;">
-    <div class="modal-content">
+    <div class="modal-content modal-large">
         <div class="modal-header">
             <h3 id="modal-title">新建资产</h3>
             <span class="close" onclick="closeAssetModal()">&times;</span>
@@ -55,35 +55,170 @@
         <div class="modal-body">
             <form id="asset-form">
                 <input type="hidden" id="asset-id">
+                <input type="hidden" id="data-source">
                 
-                <div class="form-group">
-                    <label for="asset-name">资产名称 *</label>
-                    <input type="text" id="asset-name" required>
+                <!-- 基本信息 -->
+                <div class="form-section">
+                    <div class="form-section-title">基本信息</div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="asset-name">资产名称 <span class="required">*</span></label>
+                            <input type="text" id="asset-name" required placeholder="例如：用户数据表">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="asset-type">资产类型 <span class="required">*</span></label>
+                            <select id="asset-type" onchange="handleAssetTypeChange()">
+                                <option value="csv">CSV 文件</option>
+                                <option value="excel">Excel 文件</option>
+                                <option value="database">数据库表</option>
+                                <option value="api">API 接口</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="owner">负责人</label>
+                            <input type="text" id="owner" placeholder="负责人姓名">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="quality-weight">质量权重</label>
+                            <input type="number" id="quality-weight" min="1" max="10" value="5" placeholder="1-10">
+                            <div class="form-hint">权重越高，在校验总分中占比越大</div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="data-source">数据源 *</label>
-                    <input type="text" id="data-source" placeholder="文件路径或数据库表名" required>
+                <!-- 数据源配置 -->
+                <div class="form-section">
+                    <div class="form-section-title">数据源配置</div>
+                    
+                    <!-- CSV/Excel 文件上传 -->
+                    <div id="file-upload-section">
+                        <div class="form-group">
+                            <label>上传数据文件 <span class="required">*</span></label>
+                            <div class="file-upload-area" id="file-upload-area" onclick="document.getElementById('file-input').click()">
+                                <div class="file-upload-icon">📄</div>
+                                <div class="file-upload-text">点击或拖拽文件到此处</div>
+                                <div class="file-upload-hint">支持 CSV、XLSX、XLS 格式</div>
+                                <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display: none;" onchange="handleFileSelect(event)">
+                            </div>
+                            <div id="file-info" style="display: none; margin-top: 0.5rem;">
+                                <div class="file-info-item">
+                                    <span>已选择文件：</span>
+                                    <strong id="file-name"></strong>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearFile()">清除</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 数据库连接配置 -->
+                    <div id="database-config-section" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="db-host">数据库地址 <span class="required">*</span></label>
+                                <input type="text" id="db-host" placeholder="例如：localhost 或 192.168.1.100">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="db-port">端口</label>
+                                <input type="number" id="db-port" placeholder="例如：3306">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="db-name">数据库名 <span class="required">*</span></label>
+                                <input type="text" id="db-name" placeholder="例如：mydb">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="db-type">数据库类型</label>
+                                <select id="db-type">
+                                    <option value="mysql">MySQL</option>
+                                    <option value="postgresql">PostgreSQL</option>
+                                    <option value="sqlserver">SQL Server</option>
+                                    <option value="oracle">Oracle</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="db-username">用户名</label>
+                                <input type="text" id="db-username" placeholder="数据库用户名">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="db-password">密码</label>
+                                <input type="password" id="db-password" placeholder="数据库密码">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="db-table">表名 <span class="required">*</span></label>
+                            <input type="text" id="db-table" placeholder="例如：users">
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="button" class="btn btn-secondary" onclick="testDbConnection()">🔌 测试连接</button>
+                        </div>
+                    </div>
+                    
+                    <!-- API 接口配置 -->
+                    <div id="api-config-section" style="display: none;">
+                        <div class="form-group">
+                            <label for="api-url">API URL <span class="required">*</span></label>
+                            <input type="url" id="api-url" placeholder="例如：https://api.example.com/data">
+                            <div class="form-hint">数据接口的完整URL地址</div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="api-method">请求方法</label>
+                                <select id="api-method">
+                                    <option value="GET">GET</option>
+                                    <option value="POST">POST</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="api-content-type">Content-Type</label>
+                                <select id="api-content-type">
+                                    <option value="application/json">application/json</option>
+                                    <option value="application/xml">application/xml</option>
+                                    <option value="text/csv">text/csv</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="api-headers">自定义 Headers（JSON格式）</label>
+                            <textarea id="api-headers" rows="3" placeholder='{"Authorization": "Bearer token", "X-API-Key": "your-key"}'></textarea>
+                            <div class="form-hint">可选，用于身份验证等</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="api-body">请求 Body（JSON格式，仅POST）</label>
+                            <textarea id="api-body" rows="3" placeholder='{"query": "SELECT * FROM users"}'></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="button" class="btn btn-secondary" onclick="testApiConnection()">🔌 测试连接</button>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="asset-type">资产类型</label>
-                    <select id="asset-type">
-                        <option value="csv">CSV 文件</option>
-                        <option value="excel">Excel 文件</option>
-                        <option value="database">数据库表</option>
-                        <option value="api">API 接口</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="owner">负责人</label>
-                    <input type="text" id="owner" placeholder="负责人姓名">
-                </div>
-                
-                <div class="form-group">
-                    <label for="description">描述</label>
-                    <textarea id="description" rows="3"></textarea>
+                <!-- 描述 -->
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="description">描述</label>
+                        <textarea id="description" rows="3" placeholder="描述这个资产的业务用途和数据特征"></textarea>
+                    </div>
                 </div>
                 
                 <div class="form-actions">

@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}规则配置 - DataQ 数质宝{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 单页布局样式 */
+    .rule-config-container {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+    
+    /* 左侧：模板和资产选择 */
+    .config-sidebar {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        height: fit-content;
+        position: sticky;
+        top: 100px;
+    }
+    
+    .sidebar-section {
+        margin-bottom: 2rem;
+    }
+    
+    .sidebar-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #667eea;
+    }
+    
+    /* 模板卡片（紧凑版） */
+    .template-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .template-item {
+        padding: 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .template-item:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .template-item.selected {
+        border-color: #667eea;
+        background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    }
+    
+    .template-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    
+    .template-info {
+        flex: 1;
+    }
+    
+    .template-name {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+    
+    .template-desc {
+        font-size: 0.8rem;
+        color: #666;
+    }
+    
+    /* 右侧：配置表单 */
+    .config-main {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .config-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .config-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .config-subtitle {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .step.completed .step-circle {
+        background: #48bb78;
+        color: white;
+    }
+
+    .step-label {
+        font-size: 0.875rem;
+        color: #999;
+        transition: color 0.3s;
+    }
+
+    .step.active .step-label {
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .step.completed .step-label {
+        color: #48bb78;
+    }
+
+    /* 内容区域 */
+    .wizard-content {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .wizard-step {
+        display: none;
+    }
+
+    .wizard-step.active {
+        display: block;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 模板选择卡片 */
+    .template-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .template-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+    }
+
+    .template-card:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+
+    .template-card.selected {
+        border-color: #667eea;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .template-card.selected .template-name,
+    .template-card.selected .template-desc,
+    .template-card.selected .template-type {
+        color: white;
+    }
+
+    .template-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .template-name {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .template-desc {
+        font-size: 0.875rem;
+        color: #666;
+        margin-bottom: 1rem;
+        line-height: 1.5;
+    }
+
+    .template-type {
+        font-size: 0.75rem;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .template-check {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #667eea;
+        color: white;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+
+    .template-card.selected .template-check {
+        display: flex;
+    }
+
+    /* 表单样式 */
+    .form-section {
+        margin-bottom: 2rem;
+    }
+
+    .form-section-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #333;
+        border-left: 4px solid #667eea;
+        padding-left: 1rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .form-label .required {
+        color: #fc8181;
+        margin-left: 0.25rem;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 0.9375rem;
+        transition: all 0.3s;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-textarea {
+        min-height: 120px;
+        resize: vertical;
+        font-family: inherit;
+    }
+
+    .form-hint {
+        font-size: 0.8125rem;
+        color: #666;
+        margin-top: 0.5rem;
+    }
+
+    /* SQL编辑器 */
+    .sql-editor {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #1a202c;
+    }
+
+    .sql-editor-header {
+        background: #2d3748;
+        padding: 0.75rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .sql-editor-title {
+        color: #e2e8f0;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .sql-editor-body {
+        padding: 1rem;
+    }
+
+    #sql-preview {
+        width: 100%;
+        min-height: 200px;
+        background: transparent;
+        border: none;
+        color: #e2e8f0;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        resize: vertical;
+    }
+
+    #sql-preview:focus {
+        outline: none;
+    }
+
+    /* 预览信息 */
+    .preview-info {
+        background: #f7fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .preview-info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .preview-item {
+        padding: 0.75rem;
+        background: white;
+        border-radius: 6px;
+    }
+
+    .preview-label {
+        font-size: 0.75rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+    }
+
+    .preview-value {
+        font-size: 0.9375rem;
+        color: #333;
+        font-weight: 500;
+    }
+
+    /* 按钮组 */
+    .wizard-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 2px solid #e0e0e0;
+    }
+
+    .wizard-actions-left {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .wizard-actions-right {
+        display: flex;
+        gap: 1rem;
+    }
+
+    /* 资产选择 */
+    .asset-selector {
+        margin-bottom: 2rem;
+    }
+
+    /* 加载状态 */
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .loading-overlay.show {
+        display: flex;
+    }
+
+    .loading-spinner {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rule-config-page">
+    <h2 class="page-title">规则配置向导</h2>
+
+    <!-- 步骤条 -->
+    <div class="stepper">
+        <div class="step active" data-step="1">
+            <div class="step-circle">1</div>
+            <div class="step-label">选择模板</div>
+        </div>
+        <div class="step" data-step="2">
+            <div class="step-circle">2</div>
+            <div class="step-label">配置参数</div>
+        </div>
+        <div class="step" data-step="3">
+            <div class="step-circle">3</div>
+            <div class="step-label">预览确认</div>
+        </div>
+    </div>
+
+    <!-- 向导内容 -->
+    <div class="wizard-content">
+        <!-- 步骤1: 选择模板 -->
+        <div class="wizard-step active" id="step-1">
+            <h3>选择规则模板</h3>
+            <p class="form-hint">请选择一个规则模板开始配置</p>
+
+            <!-- 资产选择器（仅在无asset_id时显示） -->
+            <div class="form-section" id="asset-selector-section" style="display: none;">
+                <div class="form-section-title">选择目标资产</div>
+                <div class="form-group">
+                    <label class="form-label">资产 <span class="required">*</span></label>
+                    <select id="asset-selector" class="form-select">
+                        <option value="">-- 请选择资产 --</option>
+                    </select>
+                    <div class="form-hint">选择要应用规则的资产</div>
+                </div>
+            </div>
+
+            <div class="template-grid" id="template-grid">
+                <!-- 动态生成模板卡片 -->
+            </div>
+        </div>
+
+        <!-- 步骤2: 配置参数 -->
+        <div class="wizard-step" id="step-2">
+            <h3>配置规则参数</h3>
+
+            <div class="form-section">
+                <div class="form-section-title">基本信息</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">
+                            规则名称 <span class="required">*</span>
+                        </label>
+                        <input type="text" id="rule-name" class="form-input" placeholder="请输入规则名称">
+                        <div class="form-hint">给规则起一个易于识别的名称</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            规则强度 <span class="required">*</span>
+                        </label>
+                        <select id="rule-strength" class="form-select">
+                            <option value="strong">强规则 - 校验失败时阻断流程</option>
+                            <option value="weak">弱规则 - 校验失败时仅记录告警</option>
+                        </select>
+                        <div class="form-hint">强规则会阻止数据进入下一阶段</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">规则描述</label>
+                    <textarea id="rule-description" class="form-textarea" placeholder="描述这个规则的用途和校验逻辑"></textarea>
+                </div>
+            </div>
+
+            <div class="form-section" id="template-params-section">
+                <div class="form-section-title">模板参数</div>
+                <div id="template-params">
+                    <!-- 动态生成模板参数表单 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 步骤3: 预览确认 -->
+        <div class="wizard-step" id="step-3">
+            <h3>预览与确认</h3>
+
+            <div class="form-section">
+                <div class="form-section-title">生成的SQL</div>
+                <div class="sql-editor">
+                    <div class="sql-editor-header">
+                        <span class="sql-editor-title">SQL预览</span>
+                        <button class="btn btn-secondary" onclick="copySQL()">复制SQL</button>
+                    </div>
+                    <div class="sql-editor-body">
+                        <textarea id="sql-preview" readonly></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-title">配置摘要</div>
+                <div class="preview-info">
+                    <div class="preview-info-grid" id="preview-summary">
+                        <!-- 动态生成摘要信息 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="wizard-actions">
+            <div class="wizard-actions-left">
+                <button class="btn btn-secondary" id="btn-prev" onclick="prevStep()" style="display: none;">
+                    上一步
+                </button>
+            </div>
+            <div class="wizard-actions-right">
+                <button class="btn btn-secondary" onclick="cancelWizard()">取消</button>
+                <button class="btn btn-primary" id="btn-next" onclick="nextStep()">
+                    下一步
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <div>正在创建规则...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/rule_config.js') }}"></script>
+{% endblock %}

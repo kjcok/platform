@@ -34,12 +34,59 @@ async function apiRequest(url, method = 'GET', data = null) {
 
 // 显示成功消息
 function showSuccess(message) {
-    alert('✅ ' + message);
+    showMessage(message, 'success');
 }
 
 // 显示错误消息
 function showError(message) {
-    alert('❌ ' + message);
+    showMessage(message, 'error');
+}
+
+// 显示警告消息
+function showWarning(message) {
+    showMessage(message, 'warning');
+}
+
+// 显示信息消息
+function showInfo(message) {
+    showMessage(message, 'info');
+}
+
+// 统一消息提示函数
+function showMessage(message, type = 'info') {
+    // 移除已存在的消息
+    const existingMessage = document.getElementById('toast-message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+    
+    // 创建消息元素
+    const toast = document.createElement('div');
+    toast.id = 'toast-message';
+    toast.className = `toast-message toast-${type}`;
+    
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type]}</span>
+        <span class="toast-text">${message}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.classList.add('toast-hide');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 3000);
 }
 
 // 格式化日期

@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}校验详情 - DataQ 数质宝{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 详情页样式 */
+    .validation-detail {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .detail-header {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .detail-header h2 {
+        margin: 0 0 1rem 0;
+        color: #333;
+    }
+    
+    .header-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .info-label {
+        font-size: 0.875rem;
+        color: #666;
+    }
+    
+    .info-value {
+        font-size: 1rem;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    /* 统计卡片 */
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-card.success {
+        border-left: 4px solid #48bb78;
+    }
+    
+    .stat-card.failed {
+        border-left: 4px solid #fc8181;
+    }
+    
+    .stat-card.total {
+        border-left: 4px solid #667eea;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-card.success .stat-value {
+        color: #48bb78;
+    }
+    
+    .stat-card.failed .stat-value {
+        color: #fc8181;
+    }
+    
+    .stat-card.total .stat-value {
+        color: #667eea;
+    }
+    
+    .stat-label {
+        color: #666;
+        font-size: 0.875rem;
+    }
+    
+    /* 筛选区 */
+    .filter-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .filter-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .filter-group label {
+        font-size: 0.875rem;
+        color: #666;
+    }
+    
+    .filter-group select,
+    .filter-group input {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        min-width: 150px;
+    }
+    
+    /* 规则列表 */
+    .rules-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #333;
+    }
+    
+    /* 异常数据区 */
+    .exceptions-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .download-btn {
+        float: right;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #999;
+    }
+    
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="validation-detail">
+    <!-- 返回按钮 -->
+    <div style="margin-bottom: 1rem;">
+        <a href="{{ url_for('validations') }}" class="btn btn-secondary">← 返回校验历史</a>
+    </div>
+    
+    <!-- 基本信息 -->
+    <div class="detail-header">
+        <h2>校验详情</h2>
+        <div class="header-info">
+            <div class="info-item">
+                <span class="info-label">校验ID</span>
+                <span class="info-value" id="history-id">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">资产名称</span>
+                <span class="info-value" id="asset-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">执行状态</span>
+                <span class="info-value" id="status">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">开始时间</span>
+                <span class="info-value" id="start-time">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">结束时间</span>
+                <span class="info-value" id="end-time">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">错误信息</span>
+                <span class="info-value" id="error-message">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 统计卡片 -->
+    <div class="stats-cards">
+        <div class="stat-card total">
+            <div class="stat-value" id="total-rules">-</div>
+            <div class="stat-label">总规则数</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-value" id="passed-rules">-</div>
+            <div class="stat-label">通过规则数</div>
+        </div>
+        <div class="stat-card failed">
+            <div class="stat-value" id="failed-rules">-</div>
+            <div class="stat-label">失败规则数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="success-rate">-</div>
+            <div class="stat-label">通过率</div>
+        </div>
+    </div>
+    
+    <!-- 规则校验列表 -->
+    <div class="rules-section">
+        <h3 class="section-title">规则校验结果</h3>
+        
+        <!-- 筛选区 -->
+        <div class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>规则强度</label>
+                    <select id="filter-strength">
+                        <option value="">全部</option>
+                        <option value="strong">强规则</option>
+                        <option value="weak">弱规则</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>校验结果</label>
+                    <select id="filter-result">
+                        <option value="">全部</option>
+                        <option value="passed">通过</option>
+                        <option value="failed">失败</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>搜索规则</label>
+                    <input type="text" id="search-rule" placeholder="输入规则名称...">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 规则表格 -->
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>规则名称</th>
+                    <th>规则类型</th>
+                    <th>规则强度</th>
+                    <th>校验结果</th>
+                    <th>异常数量</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="rules-table-body">
+                <tr>
+                    <td colspan="6" class="loading">加载中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 异常数据 -->
+    <div class="exceptions-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3 class="section-title" style="margin: 0;">异常数据</h3>
+            <button class="btn btn-primary download-btn" onclick="downloadExceptions()" id="download-btn" disabled>
+                📥 下载异常数据
+            </button>
+        </div>
+        
+        <div id="exceptions-content">
+            <div class="empty-state">
+                <div class="empty-state-icon">📊</div>
+                <p>请选择一个失败的规则查看异常数据</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/validation_detail.js') }}"></script>
+{% endblock %}

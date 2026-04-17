@@ -115,6 +115,8 @@ class ValidationHistory(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     asset_id = Column(Integer, ForeignKey('assets.id'), nullable=False, comment='关联的资产ID')
     rule_id = Column(Integer, ForeignKey('rules.id'), nullable=False, comment='关联的规则ID')
+    trigger_type = Column(String(20), nullable=False, default='manual', 
+                         comment='触发方式: manual(手动)/scheduled(定时)/api(API调用)')
     start_time = Column(DateTime, nullable=False, comment='校验开始时间')
     end_time = Column(DateTime, nullable=True, comment='校验结束时间')
     status = Column(String(20), nullable=False, default='pending', 
@@ -136,6 +138,7 @@ class ValidationHistory(Base):
             'id': self.id,
             'asset_id': self.asset_id,
             'rule_id': self.rule_id,
+            'trigger_type': self.trigger_type,
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'end_time': self.end_time.isoformat() if self.end_time else None,
             'status': self.status,

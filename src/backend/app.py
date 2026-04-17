@@ -51,6 +51,12 @@ def assets():
     return render_template('assets.html')
 
 
+@app.route('/assets/<int:asset_id>')
+def asset_detail(asset_id):
+    """资产详情页"""
+    return render_template('asset_detail.html', asset_id=asset_id)
+
+
 @app.route('/issues')
 def issues():
     """问题管理"""
@@ -61,6 +67,30 @@ def issues():
 def validations():
     """校验历史"""
     return render_template('validations.html')
+
+
+@app.route('/validations/<int:history_id>')
+def validation_detail(history_id):
+    """校验详情"""
+    return render_template('validation_detail.html', history_id=history_id)
+
+
+@app.route('/rule-config')
+def rule_config():
+    """规则配置向导"""
+    return render_template('rule_config.html')
+
+
+@app.route('/rule-management')
+def rule_management():
+    """规则管理 - 查看所有资产和规则的对应关系"""
+    return render_template('rule_management.html')
+
+
+@app.route('/execution-management')
+def execution_management():
+    """运行管理 - 批量执行、调度配置、查看执行历史"""
+    return render_template('execution_management.html')
 
 
 @app.route('/api/upload', methods=['POST'])

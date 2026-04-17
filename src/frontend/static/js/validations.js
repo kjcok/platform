@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadValidations() {
     try {
         const response = await apiRequest(`${API_BASE_URL}/validations/history`);
-        const histories = response.data.histories;
+        // 兼容两种数据格式：{data: {histories: [...]}} 或 {data: [...]}
+        const histories = Array.isArray(response.data) ? response.data : (response.data.histories || []);
         
         const tbody = document.getElementById('validations-table-body');
         
@@ -36,6 +37,6 @@ async function loadValidations() {
 }
 
 function viewDetail(historyId) {
-    // TODO: 显示校验详情
-    alert('查看校验详情 #' + historyId);
+    // 跳转到校验详情页
+    window.location.href = `/validations/${historyId}`;
 }

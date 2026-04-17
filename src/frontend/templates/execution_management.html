@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}运行管理 - DataQ 数质宝{% endblock %}
+
+{% block content %}
+<div class="execution-page">
+    <div class="page-header">
+        <h2 class="page-title">🚀 运行管理</h2>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="batchRunSelected()">
+                ▶️ 批量运行选中资产
+            </button>
+            <button class="btn btn-secondary" onclick="runAllActiveAssets()">
+                ⚡ 运行所有激活资产
+            </button>
+        </div>
+    </div>
+
+    <!-- 资产列表 -->
+    <div class="asset-execution-section">
+        <div class="section-header">
+            <h3>📊 资产执行列表</h3>
+            <div class="filter-controls">
+                <input type="text" id="search-asset" placeholder="搜索资产..." 
+                       oninput="filterAssets()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                <select id="filter-status" onchange="filterAssets()" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">全部状态</option>
+                    <option value="scheduled">已调度</option>
+                    <option value="not_scheduled">未调度</option>
+                </select>
+            </div>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th width="40"><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
+                    <th>资产ID</th>
+                    <th>资产名称</th>
+                    <th>数据源</th>
+                    <th>规则数量</th>
+                    <th>调度状态</th>
+                    <th>最后运行时间</th>
+                    <th>最后运行状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="asset-list-body">
+                <tr>
+                    <td colspan="9" class="loading">加载中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 最近执行记录 -->
+    <div class="recent-executions-section">
+        <div class="section-header">
+            <h3>📋 最近执行记录</h3>
+            <button class="btn btn-secondary" onclick="loadRecentExecutions()">🔄 刷新</button>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>执行ID</th>
+                    <th>资产名称</th>
+                    <th>触发方式</th>
+                    <th>规则总数</th>
+                    <th>通过/失败</th>
+                    <th>成功率</th>
+                    <th>执行时间</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="execution-history-body">
+                <tr>
+                    <td colspan="9" class="loading">加载中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 执行结果模态框 -->
+<div id="execution-result-modal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3>执行结果详情</h3>
+            <span class="close" onclick="closeModal('execution-result-modal')">&times;</span>
+        </div>
+        <div class="modal-body" id="execution-result-content">
+            <!-- 动态加载内容 -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('execution-result-modal')">关闭</button>
+            <button class="btn btn-danger" id="create-issue-btn" onclick="createIssueFromResult()" style="display: none;">
+                📝 创建问题工单
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.execution-page {
+    padding: 2rem;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.asset-execution-section,
+.recent-executions-section {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.section-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.schedule-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.schedule-badge.scheduled {
+    background: #d4edda;
+    color: #155724;
+}
+
+.schedule-badge.not-scheduled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-badge.running {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #000;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.rule-result-item {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+}
+
+.rule-result-item.passed {
+    border-left: 4px solid #28a745;
+}
+
+.rule-result-item.failed {
+    border-left: 4px solid #dc3545;
+}
+
+.result-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/execution_management.js') }}"></script>
+{% endblock %}

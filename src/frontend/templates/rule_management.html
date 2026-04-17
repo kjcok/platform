@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}规则管理 - DataQ 数质宝{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 规则管理页面样式 */
+    .rule-management-container {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 2rem;
+        height: calc(100vh - 140px);
+    }
+
+    /* 左侧资产列表 */
+    .asset-sidebar {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow-y: auto;
+    }
+
+    .sidebar-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #667eea;
+    }
+
+    .asset-item {
+        padding: 0.875rem;
+        margin-bottom: 0.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-left: 3px solid transparent;
+    }
+
+    .asset-item:hover {
+        background: #f7fafc;
+    }
+
+    .asset-item.active {
+        background: #edf2f7;
+        border-left-color: #667eea;
+    }
+
+    .asset-item-name {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+
+    .asset-item-meta {
+        font-size: 0.75rem;
+        color: #666;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .rule-count-badge {
+        background: #667eea;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    /* 右侧规则列表 */
+    .rule-main {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow-y: auto;
+    }
+
+    .rule-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .rule-header-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .rule-header-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .rule-card {
+        background: #f7fafc;
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #667eea;
+        transition: all 0.2s;
+    }
+
+    .rule-card:hover {
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        transform: translateX(2px);
+    }
+
+    .rule-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+
+    .rule-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .rule-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-strong {
+        background: #fed7d7;
+        color: #c53030;
+    }
+
+    .badge-weak {
+        background: #fefcbf;
+        color: #975a16;
+    }
+
+    .rule-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .rule-info-item {
+        font-size: 0.875rem;
+    }
+
+    .rule-info-label {
+        color: #666;
+        margin-bottom: 0.25rem;
+    }
+
+    .rule-info-value {
+        color: #333;
+        font-weight: 500;
+    }
+
+    .rule-description {
+        color: #666;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        margin-bottom: 0.75rem;
+    }
+
+    .rule-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+
+    .btn-small {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #999;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-text {
+        font-size: 1.125rem;
+        margin-bottom: 1rem;
+    }
+
+    /* 加载状态 */
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 3rem;
+    }
+
+    .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rule-management-container">
+    <!-- 左侧资产列表 -->
+    <aside class="asset-sidebar">
+        <div class="sidebar-title">📊 资产列表</div>
+        <div id="asset-list">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 右侧规则列表 -->
+    <main class="rule-main">
+        <div class="rule-header">
+            <div class="rule-header-title" id="rule-header-title">请选择一个资产</div>
+            <div class="rule-header-actions" id="rule-header-actions" style="display: none;">
+                <button class="btn btn-primary" onclick="configureRule()">+ 添加规则</button>
+            </div>
+        </div>
+        <div id="rule-list">
+            <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <div class="empty-text">请从左侧选择一个资产</div>
+                <div>查看该资产配置的所有规则</div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/rule_management.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}资产详情 - DataQ 数质宝{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 页面头部 */
+    .asset-header {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .asset-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+    }
+
+    .asset-title-group {
+        flex: 1;
+    }
+
+    .asset-name {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .asset-meta {
+        display: flex;
+        gap: 2rem;
+        color: #666;
+        font-size: 0.875rem;
+    }
+
+    .asset-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .asset-actions {
+        display: flex;
+        gap: 1rem;
+    }
+
+    /* 资产信息卡片 */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .info-item {
+        padding: 1rem;
+        background: #f7fafc;
+        border-radius: 6px;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .info-value {
+        font-size: 1rem;
+        color: #333;
+        font-weight: 500;
+    }
+
+    /* 标签页 */
+    .tabs {
+        display: flex;
+        border-bottom: 2px solid #e0e0e0;
+        margin-bottom: 2rem;
+    }
+
+    .tab {
+        padding: 1rem 2rem;
+        cursor: pointer;
+        color: #666;
+        font-weight: 500;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.3s;
+    }
+
+    .tab:hover {
+        color: #667eea;
+    }
+
+    .tab.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+    }
+    
+    .tab-badge {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 4px;
+        min-width: 18px;
+        text-align: center;
+    }
+    
+    .tab-badge:empty {
+        display: none;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* 规则列表 */
+    .rule-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-left: 4px solid #667eea;
+    }
+
+    .rule-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .rule-name {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .rule-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-strong {
+        background: #fed7d7;
+        color: #c53030;
+    }
+
+    .badge-weak {
+        background: #fefcbf;
+        color: #975a16;
+    }
+
+    .rule-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .rule-info-item {
+        font-size: 0.875rem;
+    }
+
+    .rule-info-label {
+        color: #666;
+        margin-bottom: 0.25rem;
+    }
+
+    .rule-info-value {
+        color: #333;
+        font-weight: 500;
+    }
+
+    .rule-description {
+        color: #666;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+
+    .rule-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+
+    .btn-small {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    /* 空状态 */
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #999;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-text {
+        font-size: 1.125rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="asset-detail-page">
+    <!-- 资产头部信息 -->
+    <div class="asset-header" id="asset-header">
+        <!-- 动态加载 -->
+    </div>
+
+    <!-- 标签页 -->
+    <div class="tabs">
+        <div class="tab active" data-tab="rules">
+            规则列表 
+            <span class="tab-badge" id="rules-count-badge">0</span>
+        </div>
+        <div class="tab" data-tab="validations">校验历史</div>
+        <div class="tab" data-tab="issues">问题记录</div>
+    </div>
+
+    <!-- 规则列表 -->
+    <div class="tab-content active" id="tab-rules">
+        <div class="page-header">
+            <h3>规则配置</h3>
+            <button class="btn btn-primary" onclick="configureRule()">+ 添加规则</button>
+        </div>
+        <div id="rules-list">
+            <!-- 动态加载 -->
+        </div>
+    </div>
+
+    <!-- 校验历史 -->
+    <div class="tab-content" id="tab-validations">
+        <div id="validations-list">
+            <!-- 动态加载 -->
+        </div>
+    </div>
+
+    <!-- 问题记录 -->
+    <div class="tab-content" id="tab-issues">
+        <div id="issues-list">
+            <!-- 动态加载 -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const assetId = {{ asset_id }};
+</script>
+<script src="{{ url_for('static', filename='js/asset_detail.js') }}"></script>
+{% endblock %}

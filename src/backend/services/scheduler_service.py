@@ -190,7 +190,8 @@ class TaskScheduler:
                 asset_id=asset_id,
                 rule_ids=rule_ids,
                 auto_archive=auto_archive,
-                auto_create_issue=auto_create_issue
+                auto_create_issue=auto_create_issue,
+                trigger_type='scheduled'
             )
             
             logger.info(f"定时校验完成: asset_id={asset_id}, success={result['success']}")

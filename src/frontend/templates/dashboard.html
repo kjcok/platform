@@ -8,7 +8,7 @@
     
     <!-- 统计卡片 -->
     <div class="stats-grid">
-        <div class="stat-card">
+        <div class="stat-card clickable" onclick="window.location.href='/assets'" title="点击查看资产列表">
             <div class="stat-icon">📦</div>
             <div class="stat-info">
                 <div class="stat-value" id="total-assets">-</div>
@@ -16,7 +16,7 @@
             </div>
         </div>
         
-        <div class="stat-card">
+        <div class="stat-card clickable" onclick="window.location.href='/rule-config'" title="点击查看规则配置">
             <div class="stat-icon">📋</div>
             <div class="stat-info">
                 <div class="stat-value" id="total-rules">-</div>
@@ -24,7 +24,7 @@
             </div>
         </div>
         
-        <div class="stat-card warning">
+        <div class="stat-card warning clickable" onclick="window.location.href='/issues?status=pending'" title="点击查看待处理问题">
             <div class="stat-icon">⚠️</div>
             <div class="stat-info">
                 <div class="stat-value" id="pending-issues">-</div>

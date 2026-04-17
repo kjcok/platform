@@ -37,6 +37,9 @@ try:
 except ImportError:
     AUTH_ENABLED = False
 
+# 导入文件服务
+from services.file_service import save_uploaded_file
+
 
 # 创建蓝图
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
@@ -60,6 +63,58 @@ def handle_error(e, status_code=500):
         error_response['traceback'] = traceback.format_exc()
     
     return jsonify(error_response), status_code
+
+
+# ==================== 文件上传 API ====================
+
+@api_bp.route('/upload', methods=['POST'])
+def upload_file():
+    """
+    上传数据文件并获取表头
+    
+    Returns:
+        JSON: 包含 file_id 和 columns 的响应
+    """
+    try:
+        if 'file' not in request.files:
+            return jsonify({
+                'status': 'error',
+                'message': '没有上传文件'
+            }), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({
+                'status': 'error',
+                'message': '文件名为空'
+            }), 400
+        
+        # 配置上传目录
+        import os
+        CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+        PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
+        UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        
+        # 保存文件并获取信息
+        result = save_uploaded_file(file, UPLOAD_FOLDER)
+        
+        if result is None:
+            return jsonify({
+                'status': 'error',
+                'message': '文件格式不支持或文件为空，仅支持 CSV、XLSX、XLS 格式'
+            }), 400
+        
+        return jsonify({
+            'status': 'success',
+            'file_id': result['file_id'],
+            'columns': result['columns'],
+            'message': '文件上传成功'
+        })
+        
+    except Exception as e:
+        return handle_error(e)
 
 
 # ==================== 资产管理 API ====================
@@ -89,6 +144,9 @@ def list_assets():
             
             result = []
             for asset in assets:
+                # 获取该资产的规则数量
+                rules = RuleManager.get_rules_by_asset(session, asset.id)
+                
                 result.append({
                     'id': asset.id,
                     'name': asset.name,
@@ -97,6 +155,7 @@ def list_assets():
                     'owner': asset.owner,
                     'quality_score_weight': asset.quality_score_weight,
                     'is_active': asset.is_active,
+                    'rule_count': len(rules),  # 添加规则数量
                     'created_at': asset.created_at.isoformat(),
                     'updated_at': asset.updated_at.isoformat()
                 })
@@ -146,9 +205,14 @@ def get_asset(asset_id):
                 'id': rule.id,
                 'name': rule.name,
                 'rule_type': rule.rule_type,
+                'rule_template': rule.rule_template,
                 'column_name': rule.column_name,
                 'strength': rule.strength,
-                'is_active': rule.is_active
+                'enabled': rule.is_active,  # 使用enabled而不是is_active以匹配前端
+                'description': rule.description,
+                'ge_expectation': rule.ge_expectation,
+                'parameters': rule.parameters,
+                'created_at': rule.created_at.isoformat() if rule.created_at else None
             } for rule in rules]
             
             return jsonify({
@@ -165,6 +229,92 @@ def get_asset(asset_id):
                     'updated_at': asset.updated_at.isoformat(),
                     'rules': rules_data,
                     'rule_count': len(rules_data)
+                }
+            })
+        finally:
+            session.close()
+            
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/assets/<int:asset_id>/columns', methods=['GET'])
+def get_asset_columns(asset_id):
+    """
+    获取资产的字段列表
+    
+    Args:
+        asset_id: 资产ID
+        
+    Returns:
+        JSON: 字段列表
+    """
+    try:
+        session = get_db_session()
+        try:
+            # 获取资产信息
+            asset = AssetManager.get_asset(session, asset_id)
+            if not asset:
+                return jsonify({
+                    'status': 'error',
+                    'message': '资产不存在'
+                }), 404
+            
+            columns = []
+            
+            # 根据资产类型获取字段
+            if asset.asset_type in ['csv', 'excel']:
+                # 从文件读取表头
+                import pandas as pd
+                import os
+                
+                # 获取项目根目录和上传目录
+                CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend/api
+                PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))  # platform
+                UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
+                
+                # 构建完整的文件路径
+                file_path = os.path.join(UPLOAD_FOLDER, asset.data_source)
+                
+                if os.path.exists(file_path):
+                    try:
+                        if asset.asset_type == 'csv':
+                            df = pd.read_csv(file_path, nrows=0)
+                        else:
+                            df = pd.read_excel(file_path, nrows=0)
+                        
+                        columns = [{'name': col, 'type': 'string'} for col in df.columns.tolist()]
+                    except Exception as e:
+                        print(f"读取文件失败: {e}")
+                else:
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'文件不存在: {file_path}'
+                    }), 404
+                    
+            elif asset.asset_type == 'database':
+                # 从数据库获取字段（需要解析data_source）
+                # TODO: 实现数据库字段获取
+                columns = [
+                    {'name': 'id', 'type': 'integer'},
+                    {'name': 'name', 'type': 'string'},
+                    {'name': 'created_at', 'type': 'datetime'}
+                ]
+                
+            elif asset.asset_type == 'api':
+                # API类型暂时返回示例字段
+                columns = [
+                    {'name': 'id', 'type': 'integer'},
+                    {'name': 'data', 'type': 'string'}
+                ]
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'asset_id': asset_id,
+                    'asset_name': asset.name,
+                    'columns': columns,
+                    'total': len(columns)
                 }
             })
         finally:
@@ -363,15 +513,17 @@ def list_rules(asset_id):
                     'ge_expectation': rule.ge_expectation,
                     'parameters': rule.parameters,
                     'strength': rule.strength,
-                    'is_active': rule.is_active,
+                    'enabled': rule.is_active,  # 前端使用enabled字段
                     'description': rule.description,
                     'created_at': rule.created_at.isoformat()
                 })
             
             return jsonify({
                 'status': 'success',
-                'data': result,
-                'count': len(result)
+                'data': {
+                    'rules': result,  # 前端期望data.rules
+                    'count': len(result)
+                }
             })
         finally:
             session.close()
@@ -448,6 +600,39 @@ def create_rule(asset_id):
         except Exception as e:
             session.rollback()
             raise
+        finally:
+            session.close()
+            
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/rules/<int:rule_id>', methods=['GET'])
+def get_rule(rule_id):
+    """
+    获取规则详情
+    
+    Args:
+        rule_id: 规则ID
+        
+    Returns:
+        JSON: 规则详细信息
+    """
+    try:
+        session = get_db_session()
+        try:
+            rule = RuleManager.get_rule(session, rule_id)
+            
+            if not rule:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'规则 {rule_id} 不存在'
+                }), 404
+            
+            return jsonify({
+                'status': 'success',
+                'data': rule.to_dict()
+            })
         finally:
             session.close()
             
@@ -555,6 +740,7 @@ def execute_validation():
         rule_ids: 规则ID列表（可选，不传则执行所有激活规则）
         auto_archive: 是否自动归档异常数据（默认true）
         auto_create_issue: 是否自动创建问题工单（默认true）
+        trigger_type: 触发方式 manual/scheduled/api（默认manual）
         
     Returns:
         JSON: 校验结果
@@ -572,6 +758,7 @@ def execute_validation():
         rule_ids = data.get('rule_ids')
         auto_archive = data.get('auto_archive', True)
         auto_create_issue = data.get('auto_create_issue', True)
+        trigger_type = data.get('trigger_type', 'manual')
         
         runner = QualityRunner()
         try:
@@ -579,7 +766,8 @@ def execute_validation():
                 asset_id=asset_id,
                 rule_ids=rule_ids,
                 auto_archive=auto_archive,
-                auto_create_issue=auto_create_issue
+                auto_create_issue=auto_create_issue,
+                trigger_type=trigger_type
             )
             
             return jsonify({
@@ -621,7 +809,7 @@ def list_validation_history():
         per_page: 每页数量（默认20）
         
     Returns:
-        JSON: 校验历史列表
+        JSON: 校验历史列表（按执行批次聚合）
     """
     try:
         session = get_db_session()
@@ -630,30 +818,71 @@ def list_validation_history():
             page = int(request.args.get('page', 1))
             per_page = int(request.args.get('per_page', 20))
             
-            histories = ValidationHistoryManager.list_histories(
-                session, asset_id=asset_id, page=page, per_page=per_page
+            # 获取所有历史记录
+            all_histories = ValidationHistoryManager.list_histories(
+                session, asset_id=asset_id, page=1, per_page=1000  # 获取更多记录用于聚合
             )
             
+            # 按 asset_id + start_time（精确到分钟）分组，识别执行批次
+            from collections import defaultdict
+            from datetime import datetime, timedelta
+            
+            batch_groups = defaultdict(list)
+            for history in all_histories:
+                # 使用 asset_id + start_time的分钟级时间戳作为批次标识
+                time_key = history.start_time.strftime('%Y-%m-%d %H:%M') if history.start_time else 'unknown'
+                batch_key = (history.asset_id, time_key)
+                batch_groups[batch_key].append(history)
+            
+            # 转换为聚合结果
             result = []
-            for history in histories:
+            for (asset_id, time_key), histories in batch_groups.items():
+                if not histories:
+                    continue
+                
+                # 取第一条记录作为代表
+                representative = histories[0]
+                
+                # 聚合统计
+                total_rules = len(histories)
+                passed_rules = sum(1 for h in histories if h.status == 'success')
+                failed_rules = sum(1 for h in histories if h.status in ['failed', 'error'])
+                success_rate = (passed_rules / total_rules * 100) if total_rules > 0 else 0
+                
+                # 检查是否有强规则失败
+                has_strong_failure = False
+                for h in histories:
+                    if h.rule and h.rule.strength == 'strong' and h.status in ['failed', 'error']:
+                        has_strong_failure = True
+                        break
+                
                 result.append({
-                    'id': history.id,
-                    'asset_id': history.asset_id,
-                    'asset_name': history.asset.name if history.asset else None,
-                    'start_time': history.start_time.isoformat(),
-                    'end_time': history.end_time.isoformat() if history.end_time else None,
-                    'status': history.status,
-                    'total_rules': history.total_rules,
-                    'passed_rules': history.passed_rules,
-                    'failed_rules': history.failed_rules,
-                    'success_rate': float(history.success_rate) if history.success_rate else None,
-                    'has_strong_failure': history.has_strong_failure,
-                    'created_at': history.created_at.isoformat()
+                    'id': representative.id,
+                    'asset_id': representative.asset_id,
+                    'asset_name': representative.asset.name if representative.asset else None,
+                    'trigger_type': representative.trigger_type if hasattr(representative, 'trigger_type') else 'manual',
+                    'start_time': representative.start_time.isoformat() if representative.start_time else None,
+                    'end_time': max((h.end_time for h in histories if h.end_time), default=None).isoformat() if any(h.end_time for h in histories) else None,
+                    'status': 'failed' if has_strong_failure else ('success' if failed_rules == 0 else 'partial'),
+                    'total_rules': total_rules,
+                    'passed_rules': passed_rules,
+                    'failed_rules': failed_rules,
+                    'success_rate': success_rate,
+                    'has_strong_failure': has_strong_failure,
+                    'created_at': representative.created_at.isoformat() if representative.created_at else None
                 })
+            
+            # 按开始时间降序排序
+            result.sort(key=lambda x: x['start_time'] or '', reverse=True)
+            
+            # 分页
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_result = result[start_idx:end_idx]
             
             return jsonify({
                 'status': 'success',
-                'data': result,
+                'data': paginated_result,
                 'pagination': {
                     'page': page,
                     'per_page': per_page,
@@ -676,7 +905,7 @@ def get_validation_history(history_id):
         history_id: 校验历史ID
         
     Returns:
-        JSON: 校验历史详细信息
+        JSON: 校验历史详细信息（包含聚合统计）
     """
     try:
         session = get_db_session()
@@ -689,27 +918,225 @@ def get_validation_history(history_id):
                     'message': f'校验历史 {history_id} 不存在'
                 }), 404
             
+            # 查询同一执行批次的所有规则记录（相同资产 + 相近时间）
+            from datetime import timedelta
+            
+            # 定义时间窗口：前后5分钟内的记录视为同一批次
+            time_window = timedelta(minutes=5)
+            start_time = history.start_time
+            
+            if start_time:
+                # 查询相同资产、时间相近的所有记录
+                same_batch = session.query(ValidationHistory).filter(
+                    ValidationHistory.asset_id == history.asset_id,
+                    ValidationHistory.start_time >= start_time - time_window,
+                    ValidationHistory.start_time <= start_time + time_window
+                ).all()
+            else:
+                same_batch = [history]
+            
+            # 聚合统计
+            total_rules = len(same_batch)
+            passed_rules = sum(1 for h in same_batch if h.status == 'success')
+            failed_rules = sum(1 for h in same_batch if h.status in ['failed', 'error'])
+            success_rate = (passed_rules / total_rules * 100) if total_rules > 0 else 0
+            
+            # 检查是否有强规则失败
+            has_strong_failure = False
+            for h in same_batch:
+                if h.rule and h.rule.strength == 'strong' and h.status in ['failed', 'error']:
+                    has_strong_failure = True
+                    break
+            
+            # 确定整体状态
+            if has_strong_failure:
+                overall_status = 'failed'
+            elif failed_rules == 0:
+                overall_status = 'success'
+            else:
+                overall_status = 'partial'
+            
             return jsonify({
                 'status': 'success',
                 'data': {
                     'id': history.id,
                     'asset_id': history.asset_id,
                     'asset_name': history.asset.name if history.asset else None,
-                    'start_time': history.start_time.isoformat(),
+                    'trigger_type': history.trigger_type if hasattr(history, 'trigger_type') else 'manual',
+                    'start_time': history.start_time.isoformat() if history.start_time else None,
                     'end_time': history.end_time.isoformat() if history.end_time else None,
-                    'status': history.status,
-                    'total_rules': history.total_rules,
-                    'passed_rules': history.passed_rules,
-                    'failed_rules': history.failed_rules,
-                    'success_rate': float(history.success_rate) if history.success_rate else None,
-                    'has_strong_failure': history.has_strong_failure,
+                    'status': overall_status,
+                    'total_rules': total_rules,
+                    'passed_rules': passed_rules,
+                    'failed_rules': failed_rules,
+                    'success_rate': success_rate,
+                    'has_strong_failure': has_strong_failure,
                     'error_message': history.error_message,
-                    'created_at': history.created_at.isoformat()
+                    'created_at': history.created_at.isoformat() if history.created_at else None
                 }
             })
         finally:
             session.close()
             
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/validations/history/<int:history_id>/rules', methods=['GET'])
+def get_validation_rules(history_id):
+    """
+    获取校验历史中的规则校验结果列表
+    
+    Args:
+        history_id: 校验历史聚合ID（一次执行的聚合ID）
+        
+    Returns:
+        JSON: 规则校验结果列表
+    """
+    try:
+        session = get_db_session()
+        try:
+            # 查询这一次执行的所有规则校验记录
+            # 由于每一条规则对应一条validation_history记录，我们需要通过batch_key找到同一次执行的所有记录
+            # batch_key = (asset_id, time_key) - 但我们不知道这个。换个思路：通过asset_id和相近时间查找
+            
+            # 先获取这条聚合记录对应的资产ID
+            # 实际上，history_id这里是聚合后的代表ID，我们需要找到这个资产在这个时间段的所有记录
+            representative = session.query(ValidationHistory).filter(ValidationHistory.id == history_id).first()
+            
+            if not representative:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'校验历史 {history_id} 不存在'
+                }), 404
+            
+            # 查询同一个资产在同一分钟内的所有校验记录（同一次批量执行）
+            from datetime import timedelta
+            if representative.start_time:
+                start_min = representative.start_time.replace(second=0)
+                end_min = start_min + timedelta(minutes=1)
+                histories = session.query(ValidationHistory)\
+                    .filter(ValidationHistory.asset_id == representative.asset_id)\
+                    .filter(ValidationHistory.start_time >= start_min)\
+                    .filter(ValidationHistory.start_time <= end_min)\
+                    .order_by(ValidationHistory.id.asc())\
+                    .all()
+            else:
+                histories = [representative]
+            
+            # 构建结果
+            rules = []
+            for h in histories:
+                rules.append({
+                    'id': h.id,
+                    'rule_id': h.rule_id,
+                    'rule_name': h.rule.name if h.rule else '未知规则',
+                    'rule_type': h.rule.rule_type if h.rule else 'unknown',
+                    'column_name': h.rule.column_name if h.rule else None,
+                    'strength': h.rule.strength if h.rule else 'weak',
+                    'status': h.status,
+                    'pass_rate': h.pass_rate,
+                    'total_records': h.total_records,
+                    'failed_records': h.failed_records,
+                    'error_message': h.error_message
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'history_id': history_id,
+                    'rules': rules,
+                    'total': len(rules)
+                }
+            })
+        finally:
+            session.close()
+            
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/validations/history/<int:history_id>/exceptions', methods=['GET'])
+def get_validation_exceptions(history_id):
+    """
+    获取校验历史的异常数据
+    
+    Args:
+        history_id: 校验历史ID
+        rule_id: 规则ID（可选）
+        page: 页码
+        per_page: 每页数量
+        
+    Returns:
+        JSON: 异常数据列表
+    """
+    try:
+        rule_id = request.args.get('rule_id', type=int)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        session = get_db_session()
+        try:
+            # TODO: 实现获取异常数据的逻辑
+            # 目前返回模拟数据
+            exceptions = [
+                {
+                    'id': 1,
+                    'row_number': 5,
+                    'column_name': 'email',
+                    'actual_value': 'invalid-email',
+                    'expected_value': '有效邮箱格式'
+                },
+                {
+                    'id': 2,
+                    'row_number': 12,
+                    'column_name': 'email',
+                    'actual_value': '',
+                    'expected_value': '非空'
+                }
+            ]
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'history_id': history_id,
+                    'rule_id': rule_id,
+                    'exceptions': exceptions,
+                    'total': len(exceptions),
+                    'page': page,
+                    'per_page': per_page
+                }
+            })
+        finally:
+            session.close()
+            
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/validations/history/<int:history_id>/exceptions/download', methods=['GET'])
+def download_validation_exceptions(history_id):
+    """
+    下载校验历史的异常数据
+    
+    Args:
+        history_id: 校验历史ID
+        rule_id: 规则ID（可选）
+        
+    Returns:
+        CSV文件
+    """
+    try:
+        rule_id = request.args.get('rule_id', type=int)
+        
+        # TODO: 实现下载异常数据的逻辑
+        # 生成CSV文件并返回
+        
+        return jsonify({
+            'status': 'success',
+            'message': '下载功能开发中'
+        })
+        
     except Exception as e:
         return handle_error(e)
 
