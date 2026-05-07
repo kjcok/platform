@@ -9,21 +9,65 @@ let currentAsset = null;
 let currentTab = 'rules';
 
 /**
+ * 初始化标签页
+ */
+function initTabs() {
+    console.log('=== initTabs 被调用 ===');
+    const tabs = document.querySelectorAll('.tab');
+    console.log('找到标签数量:', tabs.length);
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            console.log('点击了标签:', tabName);
+            switchTab(tabName);
+        });
+    });
+}
+
+/**
+ * 切换标签页
+ */
+function switchTab(tabName) {
+    console.log('=== switchTab 被调用 === 目标标签:', tabName);
+    currentTab = tabName;
+    
+    // 更新标签样式
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    // 更新内容显示
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const contentEl = document.getElementById(`tab-${tabName}`);
+    console.log('找到内容元素:', contentEl ? '是' : '否');
+    if (contentEl) {
+        contentEl.classList.add('active');
+    }
+    
+    // 加载对应数据
+    if (tabName === 'rules') {
+        loadRules();
+    } else if (tabName === 'validations') {
+        loadValidations();
+    } else if (tabName === 'issues') {
+        loadIssues();
+    } else if (tabName === 'preview') {
+        console.log('>>> 准备调用 loadDataPreview');
+        loadDataPreview();
+    }
+}
+
+/**
  * 初始化
  */
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('=== DOMContentLoaded 触发 ===');
+    console.log('页面脚本已加载');
     loadAssetDetail();
     initTabs();
     
-    // 先加载规则，根据规则数量决定默认标签页
-    loadRules().then(() => {
-        // 如果有规则且URL没有指定标签页，默认显示规则列表
-        const rulesContainer = document.getElementById('rules-list');
-        if (rulesContainer && !rulesContainer.querySelector('.empty-state')) {
-            // 有规则，确保显示规则列表标签页
-            switchTab('rules');
-        }
-    });
+    // 先加载规则
+    switchTab('rules');
 });
 
 /**
@@ -89,42 +133,6 @@ function renderAssetHeader(asset) {
     `;
     
     document.getElementById('asset-header').innerHTML = headerHtml;
-}
-
-/**
- * 初始化标签页
- */
-function initTabs() {
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabName = tab.dataset.tab;
-            switchTab(tabName);
-        });
-    });
-}
-
-/**
- * 切换标签页
- */
-function switchTab(tabName) {
-    currentTab = tabName;
-    
-    // 更新标签样式
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    
-    // 更新内容显示
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById(`tab-${tabName}`).classList.add('active');
-    
-    // 加载对应数据
-    if (tabName === 'rules') {
-        loadRules();
-    } else if (tabName === 'validations') {
-        loadValidations();
-    } else if (tabName === 'issues') {
-        loadIssues();
-    }
 }
 
 /**
@@ -319,13 +327,6 @@ function configureRule() {
 }
 
 /**
- * 查看规则列表（从标签页跳转）
- */
-function viewRules() {
-    switchTab('rules');
-}
-
-/**
  * 编辑资产
  */
 function editAsset() {
@@ -446,4 +447,107 @@ async function apiRequest(url, method = 'GET', data = null) {
     }
     
     return result;
+}
+
+// 数据预览功能：DOM 加载完成后绑定事件，避免依赖 jQuery 的时机
+document.addEventListener('DOMContentLoaded', function() {
+    const previewTab = document.querySelector('[data-tab="preview"]');
+    if (previewTab) {
+        previewTab.addEventListener('click', function() {
+            loadDataPreview();
+        });
+    }
+});
+
+function loadDataPreview() {
+    console.log('=== loadDataPreview 被调用 ===');
+    
+    // 调用 API 获取真实数据预览
+    apiRequest(`${API_BASE_URL}/assets/${assetId}/preview`)
+        .then(response => {
+            console.log('API 返回数据:', response);
+            if (response.status === 'success') {
+                renderDataPreview(response.data);
+            } else {
+                showError('加载数据预览失败: ' + (response.message || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('数据预览 API 调用失败:', error);
+            showError('加载数据预览失败: ' + error.message);
+        });
+}
+
+// 确保函数在全局作用域可用
+window.loadDataPreview = loadDataPreview;
+
+function showPreviewError(message) {
+    var headerEl = document.getElementById('preview-header');
+    var bodyEl = document.getElementById('preview-body');
+    if (headerEl) {
+        headerEl.innerHTML = '<tr><th class="text-danger">加载失败: ' + message + '</th></tr>';
+    }
+    if (bodyEl) {
+        bodyEl.innerHTML = '';
+    }
+}
+
+function renderDataPreview(data) {
+    console.log('=== renderDataPreview 被调用 === 数据:', data);
+    
+    const container = document.getElementById('preview-list');
+    console.log('preview-list 容器存在:', !!container);
+    
+    if (!container) {
+        console.error('preview-list 容器不存在!');
+        return;
+    }
+    
+    // 按照校验历史相同的方式渲染表格
+    let html = '<table class="data-table"><thead><tr>';
+    
+    // 渲染表头（最多显示10列）
+    const displayColumns = data.columns.slice(0, 10);
+    for (var i = 0; i < displayColumns.length; i++) {
+        html += '<th>' + displayColumns[i] + '</th>';
+    }
+    // 如果超过10列，显示提示
+    if (data.columns.length > 10) {
+        html += '<th>...（共' + data.columns.length + '列）</th>';
+    }
+    html += '</tr></thead><tbody>';
+    
+    // 渲染数据行（最多显示10行，已在后端处理）
+    var displayRows = data.rows;
+    for (var j = 0; j < displayRows.length; j++) {
+        var row = displayRows[j];
+        html += '<tr>';
+        // 每行也最多显示10列
+        for (var k = 0; k < Math.min(row.length, 10); k++) {
+            var cell = row[k];
+            var cellValue = (cell === null || cell === undefined) ? '' : String(cell);
+            html += '<td>' + cellValue + '</td>';
+        }
+        if (row.length > 10) {
+            html += '<td>...</td>';
+        }
+        html += '</tr>';
+    }
+    
+    html += '</tbody></table>';
+    
+    // 显示统计信息
+    html += '<div class="mt-2 text-muted small">';
+    html += '显示前 ' + displayRows.length + ' 行数据（共 ' + data.total_rows + ' 行），';
+    html += '显示前 10 列（共 ' + data.total_columns + ' 列）';
+    html += '</div>';
+    
+    console.log('生成的HTML:', html);
+    container.innerHTML = html;
+    console.log('=== 数据预览渲染完成 ===');
+}
+
+function getAssetIdFromUrl() {
+    const pathParts = window.location.pathname.split('/');
+    return pathParts[pathParts.length - 1];
 }

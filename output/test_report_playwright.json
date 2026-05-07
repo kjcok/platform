@@ -1,0 +1,14 @@
+{
+  "errors": [
+    {
+      "time": "2026-04-20T09:43:39.644114",
+      "message": "Console error: Failed to load resource: the server responded with a status of 404 (NOT FOUND)",
+      "url": "http://localhost:5000/"
+    }
+  ],
+  "screenshots": [
+    "output/screenshots/homepage_20260420_094342.png"
+  ],
+  "total_errors": 1,
+  "timestamp": "2026-04-20T09:44:14.327502"
+}

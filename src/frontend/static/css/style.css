@@ -516,6 +516,7 @@ body {
     }
 }
 
+. . .
 /* Toast 消息提示 */
 .toast-message {
     position: fixed;
@@ -600,4 +601,34 @@ body {
         opacity: 1;
         transform: translateX(0);
     }
+}
+
+/* ==================== 表格超长文本截断样式 ==================== */
+.table-cell-truncate {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table-cell-truncate:hover {
+    overflow: visible;
+    white-space: normal;
+    word-break: break-all;
+    background-color: #fffbeb;
+    position: relative;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.table-responsive-fixed {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.thead-fixed th {
+    position: sticky;
+    top: 0;
+    background-color: #e9ecef;
+    z-index: 10;
 }

@@ -117,6 +117,207 @@ def upload_file():
         return handle_error(e)
 
 
+# ==================== 数据预览 API ====================
+
+@api_bp.route('/upload/preview', methods=['POST'])
+def preview_uploaded_file():
+    """预览上传的CSV/Excel文件内容"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'status': 'error', 'message': '没有上传文件'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'status': 'error', 'message': '文件名为空'}), 400
+        
+        import pandas as pd
+        import io
+        file_content = io.BytesIO(file.read())
+        filename = file.filename.lower()
+        try:
+            if filename.endswith('.csv'):
+                df = pd.read_csv(file_content, nrows=20)
+            elif filename.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(file_content, nrows=20)
+            else:
+                return jsonify({'status': 'error', 'message': '不支持的文件格式'}), 400
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'读取文件失败: {str(e)}'}), 400
+        columns = df.columns.tolist()
+        rows = df.values.tolist()
+        import numpy as np
+        rows = [[None if (isinstance(x, float) and np.isnan(x)) else x for x in row] for row in rows]
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'columns': columns,
+                'rows': rows,
+                'preview_rows': len(rows),
+                'total_columns': len(columns)
+            }
+        })
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/assets/<int:asset_id>/preview', methods=['GET'])
+def preview_asset_data(asset_id):
+    """预览资产对应的数据文件内容"""
+    try:
+        session = get_db_session()
+        try:
+            from models.base import Asset
+            asset = session.query(Asset).filter_by(id=asset_id).first()
+            
+            if not asset:
+                return jsonify({'status': 'error', 'message': f'资产 {asset_id} 不存在'}), 404
+            
+            import os
+            import pandas as pd
+            import math
+            CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+            PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
+            UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
+            file_path = os.path.join(UPLOAD_FOLDER, asset.data_source)
+            if not os.path.exists(file_path):
+                return jsonify({'status': 'error', 'message': f'数据文件不存在: {asset.data_source}'}), 404
+            
+            # 先读取总行数，计算预览行数（1% 或最多 100 条）
+            try:
+                if file_path.lower().endswith('.csv'):
+                    # 快速读取第一列计算行数
+                    total_rows = sum(1 for _ in open(file_path, 'r', encoding='utf-8')) - 1  # 减去表头
+                elif file_path.lower().endswith(('.xlsx', '.xls')):
+                    total_rows = len(pd.read_excel(file_path))
+                else:
+                    return jsonify({'status': 'error', 'message': '不支持的文件格式'}), 400
+            except Exception as e:
+                return jsonify({'status': 'error', 'message': f'读取文件失败: {str(e)}'}), 400
+            
+            # 计算预览行数：最多10条，最多10列
+            preview_rows = min(total_rows, 10)
+            
+            # 读取预览数据
+            try:
+                if file_path.lower().endswith('.csv'):
+                    df = pd.read_csv(file_path, nrows=preview_rows)
+                elif file_path.lower().endswith(('.xlsx', '.xls')):
+                    df = pd.read_excel(file_path, nrows=preview_rows)
+                else:
+                    return jsonify({'status': 'error', 'message': '不支持的文件格式'}), 400
+            except Exception as e:
+                return jsonify({'status': 'error', 'message': f'读取预览数据失败: {str(e)}'}), 400
+            columns = df.columns.tolist()
+            rows = df.values.tolist()
+            import numpy as np
+            rows = [[None if (isinstance(x, float) and np.isnan(x)) else x for x in row] for row in rows]
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'columns': columns,
+                    'rows': rows,
+                    'total_rows': total_rows,
+                    'total_columns': len(columns),
+                    'preview_rows': len(rows)
+                }
+            })
+        finally:
+            session.close()
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/validations/history/<int:history_id>/export/json', methods=['GET'])
+def export_validation_json(history_id):
+    """导出校验历史结果为JSON格式"""
+    try:
+        session = get_db_session()
+        try:
+            from models.base import Asset, Rule, ValidationHistory
+            representative = session.query(ValidationHistory).filter_by(id=history_id).first()
+            if not representative:
+                return jsonify({'status': 'error', 'message': f'校验历史 {history_id} 不存在'}), 404
+            from datetime import timedelta
+            if representative.start_time:
+                start_min = representative.start_time.replace(second=0, microsecond=0)
+                end_min = start_min + timedelta(minutes=1)
+                histories = session.query(ValidationHistory)\
+                    .filter(ValidationHistory.asset_id == representative.asset_id)\
+                    .filter(ValidationHistory.start_time >= start_min)\
+                    .filter(ValidationHistory.start_time <= end_min)\
+                    .order_by(ValidationHistory.id.asc())\
+                    .all()
+            else:
+                histories = [representative]
+            asset = session.query(Asset).filter_by(id=representative.asset_id).first()
+            total_rules = len(histories)
+            passed_rules = sum(1 for h in histories if h.status == 'success')
+            failed_rules = sum(1 for h in histories if h.status in ['failed', 'error'])
+            success_rate = round((passed_rules / total_rules * 100), 2) if total_rules > 0 else 0
+            rule_results = []
+            exceptions = []
+            for h in histories:
+                rule = session.query(Rule).filter_by(id=h.rule_id).first() if h.rule_id else None
+                rule_result = {
+                    'history_id': h.id,
+                    'rule_id': h.rule_id,
+                    'rule_name': rule.name if rule else '未知规则',
+                    'rule_type': rule.rule_type if rule else 'unknown',
+                    'column_name': rule.column_name if rule else None,
+                    'strength': rule.strength if rule else 'weak',
+                    'status': h.status,
+                    'success': h.status == 'success',
+                    'pass_rate': h.pass_rate,
+                    'total_records': h.total_records,
+                    'failed_records': h.failed_records,
+                    'error_message': h.error_message,
+                    'start_time': h.start_time.isoformat() if h.start_time else None,
+                    'end_time': h.end_time.isoformat() if h.end_time else None
+                }
+                rule_results.append(rule_result)
+                if h.status in ['failed', 'error']:
+                    exceptions.append({
+                        'history_id': h.id,
+                        'rule_id': h.rule_id,
+                        'rule_name': rule.name if rule else '未知规则',
+                        'column_name': rule.column_name if rule else None,
+                        'error_type': h.status,
+                        'error_message': h.error_message or '校验失败'
+                    })
+            from datetime import datetime
+            export_result = {
+                'export_time': datetime.now().isoformat(),
+                'version': '1.0',
+                'validation_summary': {
+                    'batch_id': history_id,
+                    'asset_id': representative.asset_id,
+                    'asset_name': asset.name if asset else '未知资产',
+                    'data_source': asset.data_source if asset else None,
+                    'start_time': min(h.start_time for h in histories if h.start_time).isoformat() if any(h.start_time for h in histories) else None,
+                    'end_time': max(h.end_time for h in histories if h.end_time).isoformat() if any(h.end_time for h in histories) else None,
+                    'trigger_type': representative.trigger_type if hasattr(representative, 'trigger_type') else 'manual',
+                    'total_rules': total_rules,
+                    'passed_rules': passed_rules,
+                    'failed_rules': failed_rules,
+                    'success_rate': success_rate,
+                    'has_strong_rule_failure': any(h.rule and h.rule.strength == 'strong' and h.status != 'success' for h in histories)
+                },
+                'rule_results': rule_results,
+                'exceptions': exceptions
+            }
+            if request.args.get('download', 'false').lower() == 'true':
+                from flask import make_response
+                import json
+                response = make_response(json.dumps(export_result, ensure_ascii=False, indent=2))
+                response.headers['Content-Type'] = 'application/json; charset=utf-8'
+                response.headers['Content-Disposition'] = f'attachment; filename="validation_result_{history_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json"'
+                return response
+            return jsonify({'status': 'success', 'data': export_result})
+        finally:
+            session.close()
+    except Exception as e:
+        return handle_error(e)
+
 # ==================== 资产管理 API ====================
 
 @api_bp.route('/assets', methods=['GET'])
@@ -1206,6 +1407,155 @@ def list_issues():
         finally:
             session.close()
             
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/issues', methods=['POST'])
+def create_issue():
+    """
+    创建新的问题工单
+    
+    Request Body:
+        asset_id: 关联资产ID（必填）
+        rule_id: 关联规则ID（可选）
+        title: 问题标题（必填）
+        description: 问题描述（可选）
+        priority: 优先级 high/medium/low（默认 medium）
+        assignee: 负责人（可选）
+        contact_info: 联系人信息（可选）
+        validation_history_id: 关联校验记录ID（可选，自动创建时会填写）
+        
+    Returns:
+        JSON: 创建成功后的问题信息
+    """
+    try:
+        data = request.get_json()
+        
+        # 验证必填字段
+        if not data or 'asset_id' not in data or not data.get('title'):
+            return jsonify({
+                'status': 'error',
+                'message': '缺少必填字段: asset_id 和 title'
+            }), 400
+        
+        session = get_db_session()
+        try:
+            issue = IssueManager.create_issue(
+                session,
+                asset_id=data['asset_id'],
+                rule_id=data.get('rule_id'),
+                title=data['title'],
+                description=data.get('description'),
+                priority=data.get('priority', 'medium'),
+                assignee=data.get('assignee'),
+                contact_info=data.get('contact_info'),
+                validation_history_id=data.get('validation_history_id')
+            )
+            session.commit()
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'id': issue.id,
+                    'title': issue.title,
+                    'asset_id': issue.asset_id,
+                    'rule_id': issue.rule_id,
+                    'message': '问题创建成功'
+                }
+            }), 201
+        except ValueError as e:
+            session.rollback()
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 400
+        except Exception as e:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+            
+    except Exception as e:
+        return handle_error(e)
+
+@api_bp.route('/assets/<int:asset_id>/validations', methods=['GET'])
+def get_asset_validations(asset_id):
+    """
+    获取指定资产的校验历史
+    """
+    try:
+        session = get_db_session()
+        try:
+            limit = request.args.get('limit', 20, type=int)
+            from models.base import ValidationHistory
+            histories = session.query(ValidationHistory)\
+                .filter_by(asset_id=asset_id)\
+                .order_by(ValidationHistory.created_at.desc())\
+                .limit(limit)\
+                .all()
+
+            result = []
+            for h in histories:
+                result.append({
+                    'id': h.id,
+                    'asset_id': h.asset_id,
+                    'status': h.status,
+                    'pass_rate': h.pass_rate,
+                    'total_records': h.total_records,
+                    'failed_records': h.failed_records,
+                    'trigger_type': getattr(h, 'trigger_type', 'manual'),
+                    'executed_at': h.created_at.isoformat() if h.created_at else None,
+                    'created_at': h.created_at.isoformat() if h.created_at else None
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'validations': result
+                }
+            })
+        finally:
+            session.close()
+    except Exception as e:
+        return handle_error(e)
+
+@api_bp.route('/assets/<int:asset_id>/issues', methods=['GET'])
+def get_asset_issues_by_asset(asset_id):
+    """
+    获取指定资产的问题记录
+    """
+    try:
+        session = get_db_session()
+        try:
+            limit = request.args.get('limit', 20, type=int)
+            from models.base import Issue
+            issues = session.query(Issue)\
+                .filter_by(asset_id=asset_id)\
+                .order_by(Issue.created_at.desc())\
+                .limit(limit)\
+                .all()
+            result = []
+            for issue in issues:
+                result.append({
+                    'id': issue.id,
+                    'asset_id': issue.asset_id,
+                    'rule_id': issue.rule_id,
+                    'title': issue.title,
+                    'description': issue.description,
+                    'status': issue.status,
+                    'priority': issue.priority,
+                    'assignee': issue.assignee,
+                    'created_at': issue.created_at.isoformat() if issue.created_at else None
+                })
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'issues': result
+                }
+            })
+        finally:
+            session.close()
     except Exception as e:
         return handle_error(e)
 

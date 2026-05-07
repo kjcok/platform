@@ -277,6 +277,9 @@
             </div>
             
             <div class="batch-actions">
+                <button class="btn btn-success" onclick="openCreateIssueModal()">
+                    + 新建问题
+                </button>
                 <button class="btn btn-secondary" id="batch-ignore-btn" onclick="batchIgnore()" disabled>
                     忽略选中
                 </button>
@@ -326,6 +329,58 @@
             <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
             <button class="btn btn-warning" onclick="recheckIssue()">重新校验</button>
             <button class="btn btn-primary" onclick="updateIssueStatus()">更新状态</button>
+        </div>
+    </div>
+</div>
+
+<!-- 新建问题模态框 -->
+<div id="create-issue-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>➕ 新建问题工单</h3>
+            <button class="close-btn" onclick="closeCreateIssueModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">关联资产 <span class="text-danger">*</span></label>
+                <select id="create-issue-asset" class="form-control" required onchange="onAssetChange()">
+                    <option value="">-- 请选择资产 --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">关联规则</label>
+                <select id="create-issue-rule" class="form-control">
+                    <option value="">-- 请选择规则（可选） --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">问题标题 <span class="text-danger">*</span></label>
+                <input type="text" id="create-issue-title" class="form-control" placeholder="请输入问题标题" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">问题描述</label>
+                <textarea id="create-issue-description" class="form-control" rows="4" placeholder="请详细描述发现的问题..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">优先级</label>
+                <select id="create-issue-priority" class="form-control">
+                    <option value="high">高</option>
+                    <option value="medium" selected>中</option>
+                    <option value="low">低</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">负责人</label>
+                <input type="text" id="create-issue-assignee" class="form-control" placeholder="请输入负责人姓名">
+            </div>
+            <div class="form-group">
+                <label class="form-label">联系人</label>
+                <input type="text" id="create-issue-contact" class="form-control" placeholder="请输入联系方式">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeCreateIssueModal()">取消</button>
+            <button class="btn btn-primary" onclick="createIssue()">创建问题</button>
         </div>
     </div>
 </div>

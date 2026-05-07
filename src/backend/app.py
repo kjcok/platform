@@ -54,7 +54,9 @@ def assets():
 @app.route('/assets/<int:asset_id>')
 def asset_detail(asset_id):
     """资产详情页"""
-    return render_template('asset_detail.html', asset_id=asset_id)
+    import time
+    timestamp = int(time.time())
+    return render_template('asset_detail.html', asset_id=asset_id, timestamp=timestamp)
 
 
 @app.route('/issues')

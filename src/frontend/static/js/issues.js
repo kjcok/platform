@@ -396,3 +396,115 @@ document.addEventListener('click', function(event) {
         closeModal();
     }
 });
+
+/**
+ * 打开新建问题模态框
+ */
+async function openCreateIssueModal() {
+    try {
+        // 加载资产列表
+        const response = await apiRequest(`${API_BASE_URL}/assets?page=1&per_page=100`);
+        const assets = Array.isArray(response.data) ? response.data : (response.data.assets || []);
+        
+        // 填充资产下拉框
+        const assetSelect = document.getElementById('create-issue-asset');
+        assetSelect.innerHTML = '<option value="">-- 请选择资产 --</option>';
+        assets.forEach(asset => {
+            assetSelect.innerHTML += `<option value="${asset.id}">${asset.name}</option>`;
+        });
+        
+        // 清空规则下拉框
+        const ruleSelect = document.getElementById('create-issue-rule');
+        ruleSelect.innerHTML = '<option value="">-- 请选择规则（可选） --</option>';
+        
+        // 清空表单
+        document.getElementById('create-issue-title').value = '';
+        document.getElementById('create-issue-description').value = '';
+        document.getElementById('create-issue-priority').value = 'medium';
+        document.getElementById('create-issue-assignee').value = '';
+        document.getElementById('create-issue-contact').value = '';
+        
+        // 显示模态框
+        document.getElementById('create-issue-modal').classList.add('show');
+        
+    } catch (error) {
+        console.error('加载资产列表失败:', error);
+        showError('加载资产列表失败: ' + error.message);
+    }
+}
+
+/**
+ * 资产选择变化，加载该资产的规则列表
+ */
+async function onAssetChange() {
+    const assetId = document.getElementById('create-issue-asset').value;
+    const ruleSelect = document.getElementById('create-issue-rule');
+    
+    // 清空规则下拉框
+    ruleSelect.innerHTML = '<option value="">-- 请选择规则（可选） --</option>';
+    
+    if (!assetId) {
+        return;
+    }
+    
+    try {
+        const response = await apiRequest(`${API_BASE_URL}/assets/${assetId}/rules`);
+        const rules = Array.isArray(response.data) ? response.data : (response.data.rules || []);
+        
+        rules.filter(r => r.is_active).forEach(rule => {
+            ruleSelect.innerHTML += `<option value="${rule.id}">${rule.name}</option>`;
+        });
+        
+    } catch (error) {
+        console.error('加载规则列表失败:', error);
+        showError('加载规则列表失败: ' + error.message);
+    }
+}
+
+/**
+ * 关闭新建问题模态框
+ */
+function closeCreateIssueModal() {
+    document.getElementById('create-issue-modal').classList.remove('show');
+}
+
+/**
+ * 创建问题
+ */
+async function createIssue() {
+    const assetId = parseInt(document.getElementById('create-issue-asset').value);
+    const ruleId = document.getElementById('create-issue-rule').value;
+    const title = document.getElementById('create-issue-title').value.trim();
+    const description = document.getElementById('create-issue-description').value.trim();
+    const priority = document.getElementById('create-issue-priority').value;
+    const assignee = document.getElementById('create-issue-assignee').value.trim();
+    const contactInfo = document.getElementById('create-issue-contact').value.trim();
+    
+    if (!assetId || !title) {
+        showWarning('请填写必填项：关联资产和问题标题');
+        return;
+    }
+    
+    try {
+        const data = {
+            asset_id: assetId,
+            rule_id: ruleId ? parseInt(ruleId) : null,
+            title: title,
+            description: description,
+            priority: priority,
+            assignee: assignee || null,
+            contact_info: contactInfo || null
+        };
+        
+        await apiRequest(`${API_BASE_URL}/issues`, 'POST', data);
+        
+        showSuccess('问题工单创建成功');
+        closeCreateIssueModal();
+        loadIssues();
+        loadStats();
+        
+    } catch (error) {
+        console.error('创建问题失败:', error);
+        showError('创建问题失败: ' + error.message);
+    }
+}

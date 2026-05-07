@@ -22,21 +22,29 @@ async function loadValidations() {
                 <td>#${history.id}</td>
                 <td>${history.asset_name || '-'}</td>
                 <td>${history.total_rules || 0}</td>
-                <td>${(history.success_percent || 0).toFixed(1)}%</td>
+                <td>${(history.success_rate || 0).toFixed(1)}%</td>
                 <td>${getStatusBadge(history.status)}</td>
                 <td>${formatDate(history.created_at)}</td>
                 <td>
-                    <button class="btn btn-primary" onclick="viewDetail(${history.id})">详情</button>
+                    <button class="btn btn-primary btn-sm" onclick="viewValidationDetail(${history.id})">详情</button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="exportJson(${history.id})" title="导出JSON结果">
+                        <i class="fas fa-download"></i> 导出
+                    </button>
                 </td>
             </tr>
         `).join('');
         
     } catch (error) {
         console.error('加载校验历史失败:', error);
+        showError('加载校验历史失败: ' + error.message);
     }
 }
 
-function viewDetail(historyId) {
+function viewValidationDetail(historyId) {
     // 跳转到校验详情页
     window.location.href = `/validations/${historyId}`;
+}
+
+function exportJson(historyId) {
+    window.open(`${API_BASE_URL}/validations/history/${historyId}/export/json?download=true`, '_blank');
 }
