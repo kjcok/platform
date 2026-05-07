@@ -1,0 +1,81 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - heading "📊 DataQ 数质宝" [level=1] [ref=e5]
+      - list [ref=e6]:
+        - listitem [ref=e7]:
+          - link "质量大盘" [ref=e8] [cursor=pointer]:
+            - /url: /dashboard
+        - listitem [ref=e9]:
+          - link "资产管理" [ref=e10] [cursor=pointer]:
+            - /url: /assets
+        - listitem [ref=e11]:
+          - link "规则配置" [ref=e12] [cursor=pointer]:
+            - /url: /rule-config
+        - listitem [ref=e13]:
+          - link "规则管理" [ref=e14] [cursor=pointer]:
+            - /url: /rule-management
+        - listitem [ref=e15]:
+          - link "运行管理" [ref=e16] [cursor=pointer]:
+            - /url: /execution-management
+        - listitem [ref=e17]:
+          - link "问题管理" [ref=e18] [cursor=pointer]:
+            - /url: /issues
+        - listitem [ref=e19]:
+          - link "校验历史" [ref=e20] [cursor=pointer]:
+            - /url: /validations
+  - main [ref=e21]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - heading "🚀 运行管理" [level=2] [ref=e25]
+        - generic [ref=e26]:
+          - button "▶️ 批量运行选中资产" [ref=e27] [cursor=pointer]
+          - button "⚡ 运行所有激活资产" [ref=e28] [cursor=pointer]
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - heading "📊 资产执行列表" [level=3] [ref=e31]
+          - generic [ref=e32]:
+            - textbox "搜索资产..." [ref=e33]
+            - combobox [ref=e34]:
+              - option "全部状态" [selected]
+              - option "已调度"
+              - option "未调度"
+        - table [ref=e35]:
+          - rowgroup [ref=e36]:
+            - row "资产ID 资产名称 数据源 规则数量 调度状态 最后运行时间 最后运行状态 操作" [ref=e37]:
+              - columnheader [ref=e38]:
+                - checkbox [ref=e39]
+              - columnheader "资产ID" [ref=e40]
+              - columnheader "资产名称" [ref=e41]
+              - columnheader "数据源" [ref=e42]
+              - columnheader "规则数量" [ref=e43]
+              - columnheader "调度状态" [ref=e44]
+              - columnheader "最后运行时间" [ref=e45]
+              - columnheader "最后运行状态" [ref=e46]
+              - columnheader "操作" [ref=e47]
+          - rowgroup [ref=e48]:
+            - row "加载中..." [ref=e49]:
+              - cell "加载中..." [ref=e50]
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - heading "📋 最近执行记录" [level=3] [ref=e53]
+          - button "🔄 刷新" [ref=e54] [cursor=pointer]
+        - table [ref=e55]:
+          - rowgroup [ref=e56]:
+            - row "执行ID 资产名称 触发方式 规则总数 通过/失败 成功率 执行时间 状态 操作" [ref=e57]:
+              - columnheader "执行ID" [ref=e58]
+              - columnheader "资产名称" [ref=e59]
+              - columnheader "触发方式" [ref=e60]
+              - columnheader "规则总数" [ref=e61]
+              - columnheader "通过/失败" [ref=e62]
+              - columnheader "成功率" [ref=e63]
+              - columnheader "执行时间" [ref=e64]
+              - columnheader "状态" [ref=e65]
+              - columnheader "操作" [ref=e66]
+          - rowgroup [ref=e67]:
+            - row "加载中..." [ref=e68]:
+              - cell "加载中..." [ref=e69]
+  - contentinfo [ref=e70]:
+    - paragraph [ref=e72]: © 2026 DataQ 数质宝 - 数据质量管理平台
+  - button "🔔" [ref=e73] [cursor=pointer]:
+    - generic [ref=e74]: 🔔

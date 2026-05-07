@@ -11,12 +11,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // 绑定表单提交事件
     document.getElementById('asset-form').addEventListener('submit', handleAssetSubmit);
     
-    // 绑定搜索和过滤事件
+    // 绑定类型过滤事件
     document.getElementById('search-input').addEventListener('input', debounce(loadAssets, 500));
     document.getElementById('status-filter').addEventListener('change', () => {
         currentPage = 1;
         loadAssets();
     });
+    
+    // 绑定数据库类型变化事件
+    document.getElementById('db-type').addEventListener('change', handleDbTypeChange);
     
     // 初始化资产类型显示
     handleAssetTypeChange();
@@ -61,27 +64,27 @@ function renderAssetsTable(assets) {
     
     tbody.innerHTML = assets.map(asset => `
         <tr>
-            <td style="width: 50px; min-width: 50px;">${asset.id}</td>
-            <td style="width: 180px; min-width: 150px; max-width: 200px;">
-                <a href="/assets/${asset.id}" style="color: #667eea; text-decoration: none; font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${asset.name}">${asset.name}</a>
+            <td class="col-id">${asset.id}</td>
+            <td class="col-name">
+                <a href="/assets/${asset.id}" class="cell-truncate" style="color: #667eea; text-decoration: none; font-weight: 500;" title="${asset.name}">${asset.name}</a>
             </td>
-            <td style="width: auto; min-width: 250px;">
-                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${asset.data_source}">${asset.data_source}</div>
+            <td class="col-datasource">
+                <span class="cell-truncate" title="${asset.data_source}">${asset.data_source}</span>
             </td>
-            <td style="width: 80px; min-width: 70px;">${asset.asset_type}</td>
-            <td style="width: 80px; min-width: 70px;">${asset.owner || '-'}</td>
-            <td style="width: 90px; min-width: 80px;">
-                <a href="/rule-management" onclick="localStorage.setItem('selectedAssetId', ${asset.id})" style="color: #667eea; text-decoration: none;">
+            <td class="col-type">${asset.asset_type}</td>
+            <td class="col-type">${asset.owner || '-'}</td>
+            <td class="col-type">
+                <a href="/rule-management" onclick="localStorage.setItem('selectedAssetId', ${asset.id})" style="color: #667eea; text-decoration: none;" title="管理规则">
                     ${asset.rule_count || 0} 条规则
                 </a>
             </td>
-            <td style="width: 70px; min-width: 60px;">${getStatusBadge(asset.is_active ? 'active' : 'inactive')}</td>
-            <td style="width: 120px; min-width: 110px;">${formatDate(asset.created_at)}</td>
-            <td style="width: 280px; min-width: 260px; white-space: nowrap;">
-                <button class="btn btn-success" style="padding: 6px 10px; font-size: 14px;" onclick="configureRule(${asset.id})" title="配置规则">配置规则</button>
-                <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 14px;" onclick="viewAssetDetail(${asset.id})" title="查看详情">详情</button>
-                <button class="btn btn-primary" style="padding: 6px 10px; font-size: 14px;" onclick="editAsset(${asset.id})">编辑</button>
-                <button class="btn btn-danger" style="padding: 6px 10px; font-size: 14px;" onclick="deleteAsset(${asset.id})">删除</button>
+            <td class="col-status">${getStatusBadge(asset.is_active ? 'active' : 'inactive')}</td>
+            <td class="col-date">${formatDate(asset.created_at)}</td>
+            <td class="col-actions">
+                <button class="btn btn-success btn-sm" onclick="configureRule(${asset.id})" title="配置规则">配置规则</button>
+                <button class="btn btn-secondary btn-sm" onclick="viewAssetDetail(${asset.id})" title="查看详情">详情</button>
+                <button class="btn btn-primary btn-sm" onclick="editAsset(${asset.id})" title="编辑资产">编辑</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteAsset(${asset.id})" title="删除资产">删除</button>
             </td>
         </tr>
     `).join('');
@@ -181,43 +184,63 @@ async function handleAssetSubmit(event) {
         
     } else if (assetType === 'database') {
         // 数据库类型：构建连接字符串
-        const host = document.getElementById('db-host').value.trim();
-        const port = document.getElementById('db-port').value;
-        const dbName = document.getElementById('db-name').value.trim();
         const dbType = document.getElementById('db-type').value;
-        const username = document.getElementById('db-username').value;
-        const password = document.getElementById('db-password').value;
         const table = document.getElementById('db-table').value.trim();
         
-        if (!host || !dbName || !table) {
-            showError('请填写数据库地址、数据库名和表名');
-            return;
-        }
-        
-        // 构建数据库连接字符串
         let connectionString = '';
-        switch(dbType) {
-            case 'mysql':
-                connectionString = `mysql://${username}:${password}@${host}:${port}/${dbName}.${table}`;
-                break;
-            case 'postgresql':
-                connectionString = `postgresql://${username}:${password}@${host}:${port}/${dbName}.${table}`;
-                break;
-            case 'sqlserver':
-                connectionString = `mssql://${username}:${password}@${host}:${port}/${dbName}.${table}`;
-                break;
-            default:
-                connectionString = `${host}:${port}/${dbName}.${table}`;
+        
+        if (dbType === 'sqlite') {
+            // SQLite：只需要文件路径
+            const sqliteFile = document.getElementById('sqlite-file').value.trim();
+            if (!sqliteFile || !table) {
+                showError('请填写SQLite文件路径和表名');
+                return;
+            }
+            connectionString = `sqlite:///${sqliteFile}`;
+            
+            data.db_config = {
+                db_type: dbType,
+                sqlite_file: sqliteFile,
+                table: table
+            };
+        } else {
+            // 其他数据库：需要完整的连接信息
+            const host = document.getElementById('db-host').value.trim();
+            const port = document.getElementById('db-port').value;
+            const dbName = document.getElementById('db-name').value.trim();
+            const username = document.getElementById('db-username').value;
+            const password = document.getElementById('db-password').value;
+            
+            if (!host || !dbName || !table) {
+                showError('请填写数据库地址、数据库名和表名');
+                return;
+            }
+            
+            // 构建数据库连接字符串（使用 SQLAlchemy 格式）
+            switch(dbType) {
+                case 'mysql':
+                    connectionString = `mysql+pymysql://${username}:${password}@${host}:${port}/${dbName}.${table}`;
+                    break;
+                case 'postgresql':
+                    connectionString = `postgresql+psycopg2://${username}:${password}@${host}:${port}/${dbName}.${table}`;
+                    break;
+                case 'sqlserver':
+                    connectionString = `mssql+pyodbc://${username}:${password}@${host}:${port}/${dbName}.${table}?driver=ODBC+Driver+17+for+SQL+Server`;
+                    break;
+                default:
+                    connectionString = `${host}:${port}/${dbName}.${table}`;
+            }
+            
+            data.db_config = {
+                host: host,
+                port: port,
+                database: dbName,
+                db_type: dbType,
+                table: table
+            };
         }
         
         data.data_source = connectionString;
-        data.db_config = {
-            host: host,
-            port: port,
-            database: dbName,
-            type: dbType,
-            table: table
-        };
         
     } else {
         // API类型
@@ -296,9 +319,30 @@ function handleAssetTypeChange() {
     } else if (assetType === 'database') {
         // 显示数据库配置
         dbSection.style.display = 'block';
+        // 初始化数据库类型处理
+        handleDbTypeChange();
     } else if (assetType === 'api') {
         // 显示API配置
         apiSection.style.display = 'block';
+    }
+}
+
+/**
+ * 处理数据库类型变化
+ */
+function handleDbTypeChange() {
+    const dbType = document.getElementById('db-type').value;
+    const sqliteGroup = document.getElementById('sqlite-file-group');
+    const standardFields = document.getElementById('standard-db-fields');
+    
+    if (dbType === 'sqlite') {
+        // SQLite：显示文件路径，隐藏其他字段
+        sqliteGroup.style.display = 'block';
+        standardFields.style.display = 'none';
+    } else {
+        // 其他数据库：显示标准字段，隐藏SQLite文件路径
+        sqliteGroup.style.display = 'none';
+        standardFields.style.display = 'block';
     }
 }
 
@@ -360,25 +404,33 @@ function formatFileSize(bytes) {
  * 测试数据库连接
  */
 async function testDbConnection() {
-    const host = document.getElementById('db-host').value.trim();
-    const port = document.getElementById('db-port').value;
-    const dbName = document.getElementById('db-name').value.trim();
     const dbType = document.getElementById('db-type').value;
-    const username = document.getElementById('db-username').value;
-    const password = document.getElementById('db-password').value;
     
-    if (!host || !dbName) {
-        showWarning('请填写数据库地址和数据库名');
-        return;
+    if (dbType === 'sqlite') {
+        // SQLite：验证文件路径
+        const sqliteFile = document.getElementById('sqlite-file').value.trim();
+        if (!sqliteFile) {
+            showWarning('请填写SQLite文件路径');
+            return;
+        }
+    } else {
+        // 其他数据库：验证标准字段
+        const host = document.getElementById('db-host').value.trim();
+        const dbName = document.getElementById('db-name').value.trim();
+        
+        if (!host || !dbName) {
+            showWarning('请填写数据库地址和数据库名');
+            return;
+        }
     }
     
     try {
         showInfo('正在测试连接...');
         
         // TODO: 调用后端API测试连接
-        // 这里暂时模拟成功
+        // 目前临时模拟成功
         setTimeout(() => {
-            showSuccess('数据库连接成功！');
+            showSuccess('数据库连接成功');
         }, 1000);
         
     } catch (error) {

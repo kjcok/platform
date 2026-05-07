@@ -10,7 +10,7 @@ import json
 import logging
 
 from models.managers import get_session, AssetManager, RuleManager, ValidationHistoryManager
-from engine.quality_runner import QualityRunner, StrongRuleFailedException
+from engine.quality_runner import QualityRunner
 
 # 导入告警模块（可选）
 try:
@@ -202,10 +202,6 @@ class TaskScheduler:
             
             return result
             
-        except StrongRuleFailedException as e:
-            logger.error(f"强规则失败: asset_id={asset_id}, error={str(e)}")
-            self._send_alert_on_failure(asset_id, {'error': str(e), 'failed_rules': e.failed_rules})
-            raise
         except Exception as e:
             logger.error(f"定时校验异常: asset_id={asset_id}, error={str(e)}")
             raise

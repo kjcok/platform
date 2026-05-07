@@ -178,9 +178,6 @@ function renderRulesList(rules) {
             <div class="rule-card">
                 <div class="rule-card-header">
                     <div class="rule-name">${rule.name}</div>
-                    <span class="rule-badge ${rule.strength === 'strong' ? 'badge-strong' : 'badge-weak'}">
-                        ${rule.strength === 'strong' ? '强规则' : '弱规则'}
-                    </span>
                 </div>
                 <div class="rule-info">
                     <div class="rule-info-item">
@@ -545,6 +542,68 @@ function renderDataPreview(data) {
     console.log('生成的HTML:', html);
     container.innerHTML = html;
     console.log('=== 数据预览渲染完成 ===');
+    
+    // 渲染健康检查
+    checkRenderHealth(container);
+}
+
+/**
+ * 检测渲染是否正常 - 表格渲染健康检查
+ */
+function checkRenderHealth(container) {
+    setTimeout(() => {
+        const table = container.querySelector('table');
+        if (!table) return;
+        
+        const rect = table.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(table);
+        
+        // 检测指标1：元素是否有可见尺寸
+        const hasVisibleSize = rect.width > 10 && rect.height > 10;
+        
+        // 检测指标2：display属性是否正常
+        const displayOk = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+        
+        // 检测指标3：透明度是否正常
+        const opacityOk = parseFloat(computedStyle.opacity) > 0.1;
+        
+        // 检测指标4：不在视口外（避免绝对定位偏移）
+        const isInViewport = rect.right > 0 && rect.bottom > 0;
+        
+        if (!hasVisibleSize || !displayOk || !opacityOk || !isInViewport) {
+            console.warn('⚠️ 表格渲染异常，启用降级显示模式');
+            
+            // 降级方案：显示警告
+            const warning = document.createElement('div');
+            warning.className = 'alert alert-warning mt-2';
+            warning.innerHTML = `
+                <strong>⚠️ 显示提示：</strong>
+                检测到渲染异常，表格可能无法正常显示。
+                <button class="btn btn-sm btn-primary ml-2" onclick="location.reload()">
+                    刷新页面
+                </button>
+            `;
+            container.insertBefore(warning, table);
+        }
+    }, 100);
+}
+
+/**
+ * 强制显示全部表格（带性能保护）
+ */
+function forceShowFullTable(btn) {
+    if (!confirm('列数较多，可能导致浏览器卡顿。确定要显示全部吗？')) return;
+    
+    btn.disabled = true;
+    btn.textContent = '渲染中...';
+    
+    setTimeout(() => {
+        const table = btn.closest('.preview-container').querySelector('table');
+        if (table) {
+            table.style.tableLayout = 'auto';
+        }
+        btn.closest('.alert').remove();
+    }, 100);
 }
 
 function getAssetIdFromUrl() {

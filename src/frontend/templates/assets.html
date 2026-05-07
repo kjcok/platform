@@ -118,44 +118,57 @@
                     
                     <!-- 数据库连接配置 -->
                     <div id="database-config-section" style="display: none;">
-                        <div class="form-row">
+                        <!-- SQLite 文件路径（仅 SQLite 显示） -->
+                        <div id="sqlite-file-group" style="display: none;">
                             <div class="form-group">
-                                <label for="db-host">数据库地址 <span class="required">*</span></label>
-                                <input type="text" id="db-host" placeholder="例如：localhost 或 192.168.1.100">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="db-port">端口</label>
-                                <input type="number" id="db-port" placeholder="例如：3306">
+                                <label for="sqlite-file">SQLite 文件路径 <span class="required">*</span></label>
+                                <input type="text" id="sqlite-file" placeholder="例如：/path/to/database.db 或相对路径 data/mydb.db">
+                                <small class="form-text text-muted">输入服务器上 SQLite 数据库文件的路径</small>
                             </div>
                         </div>
                         
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="db-name">数据库名 <span class="required">*</span></label>
-                                <input type="text" id="db-name" placeholder="例如：mydb">
+                        <!-- 普通数据库配置（SQLite 隐藏） -->
+                        <div id="standard-db-fields">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="db-host">数据库地址 <span class="required">*</span></label>
+                                    <input type="text" id="db-host" placeholder="例如：localhost 或 192.168.1.100">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="db-port">端口</label>
+                                    <input type="number" id="db-port" placeholder="例如：3306">
+                                </div>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="db-type">数据库类型</label>
-                                <select id="db-type">
-                                    <option value="mysql">MySQL</option>
-                                    <option value="postgresql">PostgreSQL</option>
-                                    <option value="sqlserver">SQL Server</option>
-                                    <option value="oracle">Oracle</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="db-username">用户名</label>
-                                <input type="text" id="db-username" placeholder="数据库用户名">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="db-name">数据库名 <span class="required">*</span></label>
+                                    <input type="text" id="db-name" placeholder="例如：mydb">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="db-type">数据库类型</label>
+                                    <select id="db-type">
+                                        <option value="mysql">MySQL</option>
+                                        <option value="postgresql">PostgreSQL</option>
+                                        <option value="sqlite">SQLite</option>
+                                        <option value="sqlserver">SQL Server</option>
+                                        <option value="oracle">Oracle</option>
+                                    </select>
+                                </div>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="db-password">密码</label>
-                                <input type="password" id="db-password" placeholder="数据库密码">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="db-username">用户名</label>
+                                    <input type="text" id="db-username" placeholder="数据库用户名">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="db-password">密码</label>
+                                    <input type="password" id="db-password" placeholder="数据库密码">
+                                </div>
                             </div>
                         </div>
                         

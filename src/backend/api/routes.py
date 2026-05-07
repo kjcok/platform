@@ -6,14 +6,19 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+import os
 import traceback
+
+# 让 pymysql 充当 MySQLdb，供 SQLAlchemy 使用
+import pymysql
+pymysql.install_as_MySQLdb()
 
 # 导入数据库工具和执行引擎
 from models.managers import (
     get_session, AssetManager, RuleManager, 
     ValidationHistoryManager, IssueManager, ExceptionDataManager
 )
-from engine.quality_runner import QualityRunner, StrongRuleFailedException
+from engine.quality_runner import QualityRunner
 
 # 导入数据模型（用于统计查询）
 from models.base import Asset, Rule, Issue, ValidationHistory
@@ -178,35 +183,129 @@ def preview_asset_data(asset_id):
             CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
             PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
             UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
-            file_path = os.path.join(UPLOAD_FOLDER, asset.data_source)
-            if not os.path.exists(file_path):
-                return jsonify({'status': 'error', 'message': f'数据文件不存在: {asset.data_source}'}), 404
             
-            # 先读取总行数，计算预览行数（1% 或最多 100 条）
+            # 先读取总行数，计算预览行数
+            total_rows = 0
+            table_name = None
+            df = None
+            
             try:
-                if file_path.lower().endswith('.csv'):
-                    # 快速读取第一列计算行数
-                    total_rows = sum(1 for _ in open(file_path, 'r', encoding='utf-8')) - 1  # 减去表头
-                elif file_path.lower().endswith(('.xlsx', '.xls')):
-                    total_rows = len(pd.read_excel(file_path))
+                # 判断资产类型并读取数据
+                if asset.asset_type == 'database':
+                    # 数据库类型：需要区分 SQLite 文件型 和 MySQL/PostgreSQL 网络型
+                    data_source = asset.data_source
+                    
+                    if data_source.startswith('sqlite:///'):
+                        # SQLite 旧格式
+                        file_path = data_source.replace('sqlite:///', '')
+                        db_type = 'sqlite'
+                    elif data_source.startswith('sqlite_') or data_source.lower().endswith('.db'):
+                        # SQLite 新格式（已复制到 output/data）
+                        file_path = os.path.join(UPLOAD_FOLDER, data_source)
+                        db_type = 'sqlite'
+                    elif data_source.startswith(('mysql://', 'mysql+pymysql://')):
+                        db_type = 'mysql'
+                    elif data_source.startswith(('postgresql://', 'postgres://', 'postgresql+psycopg2://')):
+                        db_type = 'postgresql'
+                    elif data_source.startswith(('mssql://', 'mssql+pyodbc://')):
+                        db_type = 'sqlserver'
+                    elif data_source.startswith('oracle://'):
+                        db_type = 'oracle'
+                    else:
+                        db_type = 'sqlite'  # 默认按 SQLite 处理
+                    
+                    # 获取表名
+                    if asset.db_config:
+                        db_config = json.loads(asset.db_config) if isinstance(asset.db_config, str) else asset.db_config
+                        table_name = db_config.get('table')
+                    
+                    if db_type == 'sqlite':
+                        # SQLite：文件型数据库
+                        if not os.path.exists(file_path):
+                            return jsonify({'status': 'error', 'message': f'数据文件不存在: {data_source}'}), 404
+                        
+                        from integrations.db_connector import create_connector
+                        conn = create_connector('sqlite', db_path=file_path)
+                        with conn:
+                            if not table_name:
+                                tables_df = conn.execute_query("SELECT name FROM sqlite_master WHERE type='table'")
+                                if len(tables_df) > 0:
+                                    table_name = tables_df.iloc[0]['name']
+                                else:
+                                    return jsonify({'status': 'error', 'message': 'SQLite 数据库中没有表'}), 400
+                            
+                            count_df = conn.execute_query(f"SELECT COUNT(*) as cnt FROM '{table_name}'")
+                            total_rows = int(count_df.iloc[0]['cnt']) if len(count_df) > 0 else 0
+                            preview_rows = min(total_rows, 10)
+                            df = conn.execute_query(f"SELECT * FROM '{table_name}' LIMIT {preview_rows}")
+                    else:
+                        # MySQL/PostgreSQL/SQL Server/Oracle：网络型数据库
+                        from integrations.db_connector import create_connector
+                        
+                        # 解析连接参数
+                        if asset.db_config:
+                            db_config = json.loads(asset.db_config) if isinstance(asset.db_config, str) else asset.db_config
+                            table_name = db_config.get('table')
+                        
+                        if not table_name:
+                            return jsonify({'status': 'error', 'message': '未配置数据库表名'}), 400
+                        
+                        # 使用 _load_data 风格的连接方式
+                        import urllib.parse
+                        from sqlalchemy import create_engine
+                        
+                        parsed = urllib.parse.urlparse(data_source)
+                        path = parsed.path.strip('/')
+                        
+                        if '.' in path and '/' not in path:
+                            last_dot_index = path.rfind('.')
+                            if last_dot_index > 0:
+                                database_name = path[:last_dot_index]
+                                table_name = path[last_dot_index+1:]
+                                new_path = '/' + database_name
+                                parsed = parsed._replace(path=new_path)
+                                connection_url = urllib.parse.urlunparse(parsed)
+                            else:
+                                connection_url = data_source
+                        else:
+                            connection_url = data_source
+                        
+                        if connection_url.startswith('mysql://') and not connection_url.startswith('mysql+pymysql://'):
+                            connection_url = connection_url.replace('mysql://', 'mysql+pymysql://', 1)
+                        
+                        engine = create_engine(connection_url)
+                        
+                        # 获取总行数
+                        count_result = pd.read_sql(f"SELECT COUNT(*) as cnt FROM {table_name}", engine)
+                        total_rows = int(count_result.iloc[0]['cnt'])
+                        
+                        # 读取预览数据
+                        preview_rows = min(total_rows, 10)
+                        df = pd.read_sql(f"SELECT * FROM {table_name} LIMIT {preview_rows}", engine)
+                        engine.dispose()
+                        
+                elif asset.asset_type in ['csv', 'excel']:
+                    # 文件类型
+                    file_path = os.path.join(UPLOAD_FOLDER, asset.data_source)
+                    
+                    if not os.path.exists(file_path):
+                        return jsonify({'status': 'error', 'message': f'数据文件不存在: {asset.data_source}'}), 404
+                    
+                    if asset.asset_type == 'csv' or file_path.lower().endswith('.csv'):
+                        total_rows = sum(1 for _ in open(file_path, 'r', encoding='utf-8')) - 1
+                        preview_rows = min(total_rows, 10)
+                        df = pd.read_csv(file_path, nrows=preview_rows)
+                        
+                    elif asset.asset_type == 'excel' or file_path.lower().endswith(('.xlsx', '.xls')):
+                        total_rows = len(pd.read_excel(file_path))
+                        preview_rows = min(total_rows, 10)
+                        df = pd.read_excel(file_path, nrows=preview_rows)
+                        
                 else:
-                    return jsonify({'status': 'error', 'message': '不支持的文件格式'}), 400
+                    return jsonify({'status': 'error', 'message': '不支持的资产类型'}), 400
+                    
             except Exception as e:
-                return jsonify({'status': 'error', 'message': f'读取文件失败: {str(e)}'}), 400
-            
-            # 计算预览行数：最多10条，最多10列
-            preview_rows = min(total_rows, 10)
-            
-            # 读取预览数据
-            try:
-                if file_path.lower().endswith('.csv'):
-                    df = pd.read_csv(file_path, nrows=preview_rows)
-                elif file_path.lower().endswith(('.xlsx', '.xls')):
-                    df = pd.read_excel(file_path, nrows=preview_rows)
-                else:
-                    return jsonify({'status': 'error', 'message': '不支持的文件格式'}), 400
-            except Exception as e:
-                return jsonify({'status': 'error', 'message': f'读取预览数据失败: {str(e)}'}), 400
+                return jsonify({'status': 'error', 'message': f'读取数据失败: {str(e)}'}), 400
             columns = df.columns.tolist()
             rows = df.values.tolist()
             import numpy as np
@@ -464,50 +563,136 @@ def get_asset_columns(asset_id):
             columns = []
             
             # 根据资产类型获取字段
-            if asset.asset_type in ['csv', 'excel']:
-                # 从文件读取表头
-                import pandas as pd
-                import os
-                
-                # 获取项目根目录和上传目录
-                CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend/api
-                PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))  # platform
-                UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
-                
-                # 构建完整的文件路径
-                file_path = os.path.join(UPLOAD_FOLDER, asset.data_source)
-                
-                if os.path.exists(file_path):
-                    try:
-                        if asset.asset_type == 'csv':
+            try:
+                if asset.asset_type == 'database':
+                    # 数据库类型：需要区分 SQLite 文件型 和 MySQL/PostgreSQL 网络型
+                    data_source = asset.data_source
+                    
+                    # 判断数据库类型
+                    if data_source.startswith('sqlite:///') or data_source.startswith('sqlite_') or data_source.lower().endswith('.db'):
+                        db_type = 'sqlite'
+                    elif data_source.startswith(('mysql://', 'mysql+pymysql://')):
+                        db_type = 'mysql'
+                    elif data_source.startswith(('postgresql://', 'postgres://', 'postgresql+psycopg2://')):
+                        db_type = 'postgresql'
+                    elif data_source.startswith(('mssql://', 'mssql+pyodbc://')):
+                        db_type = 'sqlserver'
+                    elif data_source.startswith('oracle://'):
+                        db_type = 'oracle'
+                    else:
+                        db_type = 'sqlite'
+                    
+                    # 获取表名
+                    table_name = None
+                    if asset.db_config:
+                        db_config = json.loads(asset.db_config) if isinstance(asset.db_config, str) else asset.db_config
+                        table_name = db_config.get('table')
+                    
+                    if db_type == 'sqlite':
+                        # SQLite: 读取文件
+                        if data_source.startswith('sqlite:///'):
+                            file_path = data_source.replace('sqlite:///', '')
+                        else:
+                            CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+                            PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
+                            UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
+                            file_path = os.path.join(UPLOAD_FOLDER, data_source)
+                        
+                        if os.path.exists(file_path):
+                            from integrations.db_connector import create_connector
+                            conn = create_connector('sqlite', db_path=file_path)
+                            with conn:
+                                if not table_name:
+                                    tables_df = conn.execute_query("SELECT name FROM sqlite_master WHERE type='table'")
+                                    if len(tables_df) > 0:
+                                        table_name = tables_df.iloc[0]['name']
+                                
+                                if table_name:
+                                    info_df = conn.execute_query(f"PRAGMA table_info('{table_name}')")
+                                    for _, row in info_df.iterrows():
+                                        col_type = 'string'
+                                        if 'INT' in str(row['type']).upper():
+                                            col_type = 'integer'
+                                        elif 'REAL' in str(row['type']).upper() or 'FLOAT' in str(row['type']).upper() or 'DOUBLE' in str(row['type']).upper():
+                                            col_type = 'float'
+                                        elif 'DATE' in str(row['type']).upper() or 'TIME' in str(row['type']).upper():
+                                            col_type = 'datetime'
+                                        columns.append({'name': row['name'], 'type': col_type})
+                        else:
+                            return jsonify({'status': 'error', 'message': f'SQLite 文件不存在: {file_path}'}), 404
+                    else:
+                        # MySQL/PostgreSQL/SQL Server/Oracle
+                        if not table_name:
+                            return jsonify({'status': 'error', 'message': '未配置数据库表名'}), 400
+                        
+                        import urllib.parse
+                        from sqlalchemy import create_engine, inspect
+                        
+                        parsed = urllib.parse.urlparse(data_source)
+                        path = parsed.path.strip('/')
+                        
+                        if '.' in path and '/' not in path:
+                            last_dot_index = path.rfind('.')
+                            if last_dot_index > 0:
+                                database_name = path[:last_dot_index]
+                                new_path = '/' + database_name
+                                parsed = parsed._replace(path=new_path)
+                                connection_url = urllib.parse.urlunparse(parsed)
+                            else:
+                                connection_url = data_source
+                        else:
+                            connection_url = data_source
+                        
+                        if connection_url.startswith('mysql://') and not connection_url.startswith('mysql+pymysql://'):
+                            connection_url = connection_url.replace('mysql://', 'mysql+pymysql://', 1)
+                        
+                        engine = create_engine(connection_url)
+                        inspector = inspect(engine)
+                        
+                        # 获取表列信息
+                        column_info = inspector.get_columns(table_name)
+                        for col in column_info:
+                            col_type = 'string'
+                            db_type_name = str(col['type']).upper()
+                            if 'INT' in db_type_name:
+                                col_type = 'integer'
+                            elif 'FLOAT' in db_type_name or 'DOUBLE' in db_type_name or 'REAL' in db_type_name or 'DECIMAL' in db_type_name or 'NUMERIC' in db_type_name:
+                                col_type = 'float'
+                            elif 'DATE' in db_type_name or 'TIME' in db_type_name:
+                                col_type = 'datetime'
+                            elif 'BOOL' in db_type_name:
+                                col_type = 'boolean'
+                            columns.append({'name': col['name'], 'type': col_type})
+                        engine.dispose()
+                        
+                elif asset.asset_type in ['csv', 'excel']:
+                    # 文件类型
+                    import pandas as pd
+                    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+                    PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
+                    UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
+                    file_path = os.path.join(UPLOAD_FOLDER, asset.data_source)
+                    
+                    if os.path.exists(file_path):
+                        if asset.asset_type == 'csv' or file_path.lower().endswith('.csv'):
                             df = pd.read_csv(file_path, nrows=0)
                         else:
                             df = pd.read_excel(file_path, nrows=0)
-                        
                         columns = [{'name': col, 'type': 'string'} for col in df.columns.tolist()]
-                    except Exception as e:
-                        print(f"读取文件失败: {e}")
-                else:
-                    return jsonify({
-                        'status': 'error',
-                        'message': f'文件不存在: {file_path}'
-                    }), 404
+                    else:
+                        return jsonify({'status': 'error', 'message': f'文件不存在: {file_path}'}), 404
+                        
+                elif asset.asset_type == 'api':
+                    # API类型暂时返回示例字段
+                    columns = [
+                        {'name': 'id', 'type': 'integer'},
+                        {'name': 'data', 'type': 'string'}
+                    ]
                     
-            elif asset.asset_type == 'database':
-                # 从数据库获取字段（需要解析data_source）
-                # TODO: 实现数据库字段获取
-                columns = [
-                    {'name': 'id', 'type': 'integer'},
-                    {'name': 'name', 'type': 'string'},
-                    {'name': 'created_at', 'type': 'datetime'}
-                ]
-                
-            elif asset.asset_type == 'api':
-                # API类型暂时返回示例字段
-                columns = [
-                    {'name': 'id', 'type': 'integer'},
-                    {'name': 'data', 'type': 'string'}
-                ]
+            except Exception as e:
+                print(f"读取字段失败: {e}")
+                import traceback
+                traceback.print_exc()
             
             return jsonify({
                 'status': 'success',
@@ -556,13 +741,46 @@ def create_asset():
                 'message': '数据源不能为空'
             }), 400
         
+        # 处理 SQLite 文件：复制到 output/data 目录
+        data_source = data['data_source']
+        asset_type = data.get('asset_type', 'csv')
+        
+        if asset_type == 'database' and data_source.startswith('sqlite:///'):
+            # 提取原始文件路径
+            sqlite_path = data_source.replace('sqlite:///', '')
+            
+            # 构建目标路径
+            import shutil
+            CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+            PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
+            UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            
+            # 生成唯一文件名
+            import uuid
+            original_filename = os.path.basename(sqlite_path)
+            file_id = f"sqlite_{uuid.uuid4().hex}_{original_filename}"
+            dest_path = os.path.join(UPLOAD_FOLDER, file_id)
+            
+            # 复制文件
+            if os.path.exists(sqlite_path):
+                shutil.copy2(sqlite_path, dest_path)
+                # 更新 data_source 为相对路径
+                data_source = file_id
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'SQLite 文件不存在: {sqlite_path}'
+                }), 400
+        
         session = get_db_session()
         try:
             asset = AssetManager.create_asset(
                 session=session,
                 name=data['name'],
-                data_source=data['data_source'],
-                asset_type=data.get('asset_type', 'csv'),
+                data_source=data_source,
+                asset_type=asset_type,
+                db_config=json.dumps(data.get('db_config')) if data.get('db_config') else None,
                 owner=data.get('owner'),
                 quality_score_weight=data.get('quality_score_weight', 5.0),
                 description=data.get('description')
@@ -610,6 +828,11 @@ def update_asset(asset_id):
     """
     try:
         data = request.get_json()
+        
+        # 处理 db_config 序列化
+        if 'db_config' in data and data['db_config'] is not None:
+            if isinstance(data['db_config'], dict):
+                data['db_config'] = json.dumps(data['db_config'])
         
         session = get_db_session()
         try:
@@ -970,22 +1193,12 @@ def execute_validation():
                 auto_create_issue=auto_create_issue,
                 trigger_type=trigger_type
             )
-            
+
             return jsonify({
                 'status': 'success',
                 'data': result,
                 'message': '校验执行完成'
             })
-        except StrongRuleFailedException as e:
-            # 强规则失败，返回特殊状态
-            return jsonify({
-                'status': 'strong_rule_failed',
-                'message': str(e),
-                'failed_rules': e.failed_rules,
-                'data': {
-                    'validation_history_id': getattr(e, 'validation_history_id', None)
-                }
-            }), 409
         finally:
             if runner.should_close_session:
                 runner.session.close()
@@ -1050,13 +1263,6 @@ def list_validation_history():
                 failed_rules = sum(1 for h in histories if h.status in ['failed', 'error'])
                 success_rate = (passed_rules / total_rules * 100) if total_rules > 0 else 0
                 
-                # 检查是否有强规则失败
-                has_strong_failure = False
-                for h in histories:
-                    if h.rule and h.rule.strength == 'strong' and h.status in ['failed', 'error']:
-                        has_strong_failure = True
-                        break
-                
                 result.append({
                     'id': representative.id,
                     'asset_id': representative.asset_id,
@@ -1064,12 +1270,14 @@ def list_validation_history():
                     'trigger_type': representative.trigger_type if hasattr(representative, 'trigger_type') else 'manual',
                     'start_time': representative.start_time.isoformat() if representative.start_time else None,
                     'end_time': max((h.end_time for h in histories if h.end_time), default=None).isoformat() if any(h.end_time for h in histories) else None,
-                    'status': 'failed' if has_strong_failure else ('success' if failed_rules == 0 else 'partial'),
+                    'status': (
+                        'success' if passed_rules == total_rules else
+                        ('failed' if passed_rules == 0 else 'partial')
+                    ),
                     'total_rules': total_rules,
                     'passed_rules': passed_rules,
                     'failed_rules': failed_rules,
                     'success_rate': success_rate,
-                    'has_strong_failure': has_strong_failure,
                     'created_at': representative.created_at.isoformat() if representative.created_at else None
                 })
             
@@ -1142,20 +1350,18 @@ def get_validation_history(history_id):
             failed_rules = sum(1 for h in same_batch if h.status in ['failed', 'error'])
             success_rate = (passed_rules / total_rules * 100) if total_rules > 0 else 0
             
-            # 检查是否有强规则失败
-            has_strong_failure = False
-            for h in same_batch:
-                if h.rule and h.rule.strength == 'strong' and h.status in ['failed', 'error']:
-                    has_strong_failure = True
-                    break
-            
             # 确定整体状态
-            if has_strong_failure:
-                overall_status = 'failed'
-            elif failed_rules == 0:
-                overall_status = 'success'
+            # 1条规则：只有success或failed，没有partial
+            # 多条规则：全部通过=success，至少1条通过但不是全部=partial，全部失败=failed
+            if total_rules == 1:
+                overall_status = 'success' if passed_rules == 1 else 'failed'
             else:
-                overall_status = 'partial'
+                if passed_rules == total_rules:
+                    overall_status = 'success'
+                elif passed_rules > 0:
+                    overall_status = 'partial'
+                else:
+                    overall_status = 'failed'
             
             return jsonify({
                 'status': 'success',
@@ -1171,7 +1377,6 @@ def get_validation_history(history_id):
                     'passed_rules': passed_rules,
                     'failed_rules': failed_rules,
                     'success_rate': success_rate,
-                    'has_strong_failure': has_strong_failure,
                     'error_message': history.error_message,
                     'created_at': history.created_at.isoformat() if history.created_at else None
                 }
@@ -1801,6 +2006,68 @@ def get_statistics_overview():
                         'total': total_validations,
                         'successful': successful_validations
                     }
+                }
+            })
+        finally:
+            session.close()
+            
+    except Exception as e:
+        return handle_error(e)
+
+
+@api_bp.route('/statistics/trend', methods=['GET'])
+def get_validation_trend():
+    """
+    获取最近7天的校验趋势数据
+    
+    Returns:
+        JSON: 趋势数据
+    """
+    try:
+        session = get_db_session()
+        try:
+            from datetime import datetime, timedelta
+            
+            # 获取最近7天的数据
+            end_date = datetime.now().date()
+            start_date = end_date - timedelta(days=6)
+            
+            # 按日期统计成功和失败的校验次数
+            trend_data = []
+            current_date = start_date
+            
+            while current_date <= end_date:
+                day_start = datetime.combine(current_date, datetime.min.time())
+                day_end = datetime.combine(current_date, datetime.max.time())
+                
+                # 统计当天成功校验
+                success_count = session.query(ValidationHistory).filter(
+                    ValidationHistory.start_time >= day_start,
+                    ValidationHistory.start_time <= day_end,
+                    ValidationHistory.status == 'success'
+                ).count()
+                
+                # 统计当天失败校验
+                failed_count = session.query(ValidationHistory).filter(
+                    ValidationHistory.start_time >= day_start,
+                    ValidationHistory.start_time <= day_end,
+                    ValidationHistory.status == 'failed'
+                ).count()
+                
+                trend_data.append({
+                    'date': current_date.strftime('%Y-%m-%d'),
+                    'day_label': current_date.strftime('%a'),
+                    'success': success_count,
+                    'failed': failed_count
+                })
+                
+                current_date += timedelta(days=1)
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'trend': trend_data,
+                    'days': 7
                 }
             })
         finally:

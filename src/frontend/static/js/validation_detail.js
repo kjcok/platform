@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 绑定筛选事件
-    document.getElementById('filter-strength').addEventListener('change', filterRules);
     document.getElementById('filter-result').addEventListener('change', filterRules);
     document.getElementById('search-rule').addEventListener('input', debounce(filterRules, 300));
 });
@@ -61,14 +60,17 @@ function renderBasicInfo() {
 }
 
 /**
- * 渲染统计卡片
+ * 渲染统计卡片（基于实际加载的规则结果列表计算，确保与表格一致）
  */
 function renderStatsCards() {
-    document.getElementById('total-rules').textContent = validationData.total_rules || 0;
-    document.getElementById('passed-rules').textContent = validationData.passed_rules || 0;
-    document.getElementById('failed-rules').textContent = validationData.failed_rules || 0;
-    
-    const successRate = validationData.success_rate || 0;
+    const total = ruleResults.length;
+    const failed = ruleResults.filter(r => r.status === 'failed' || r.status === 'error').length;
+    const passed = total - failed;
+    const successRate = total > 0 ? (passed / total * 100) : 0;
+
+    document.getElementById('total-rules').textContent = total;
+    document.getElementById('passed-rules').textContent = passed;
+    document.getElementById('failed-rules').textContent = failed;
     document.getElementById('success-rate').textContent = successRate.toFixed(1) + '%';
 }
 
@@ -80,7 +82,10 @@ async function loadRuleResults() {
         // 调用 API获取规则校验结果列表
         const response = await apiRequest(`${API_BASE_URL}/validations/history/${historyId}/rules`);
         ruleResults = response.data.rules;
-        
+
+        // 基于实际规则列表重新计算统计卡片，确保与表格数据一致
+        renderStatsCards();
+
         renderRuleTable(ruleResults);
         
     } catch (error) {
@@ -97,7 +102,7 @@ function renderRuleTable(rules) {
     const tbody = document.getElementById('rules-table-body');
     
     if (rules.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading">暂无数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">暂无数据</td></tr>';
         return;
     }
     
@@ -105,11 +110,10 @@ function renderRuleTable(rules) {
         <tr>
             <td>${rule.rule_name}</td>
             <td>${getRuleTypeLabel(rule.rule_type)}</td>
-            <td>${getStrengthBadge(rule.strength)}</td>
-            <td>${getResultBadge(rule.result)}</td>
-            <td>${rule.exception_count}</td>
+            <td>${getResultBadge(rule.status)}</td>
+            <td>${rule.failed_records || 0}</td>
             <td>
-                ${rule.result === 'failed' ? 
+                ${rule.status === 'failed' || rule.status === 'error' ?
                     `<button class="btn btn-primary" onclick="viewExceptions(${rule.id})">查看异常</button>` :
                     '<span style="color: #999;">-</span>'
                 }
@@ -122,27 +126,21 @@ function renderRuleTable(rules) {
  * 筛选规则
  */
 function filterRules() {
-    const strengthFilter = document.getElementById('filter-strength').value;
     const resultFilter = document.getElementById('filter-result').value;
     const searchText = document.getElementById('search-rule').value.toLowerCase();
-    
+
     let filtered = ruleResults;
-    
-    // 按强度筛选
-    if (strengthFilter) {
-        filtered = filtered.filter(r => r.strength === strengthFilter);
-    }
-    
+
     // 按结果筛选
     if (resultFilter) {
-        filtered = filtered.filter(r => r.result === resultFilter);
+        filtered = filtered.filter(r => r.status === resultFilter);
     }
-    
+
     // 按名称搜索
     if (searchText) {
         filtered = filtered.filter(r => r.rule_name.toLowerCase().includes(searchText));
     }
-    
+
     renderRuleTable(filtered);
 }
 
@@ -238,17 +236,6 @@ function getRuleTypeLabel(type) {
         'stability': '稳定性'
     };
     return typeMap[type] || type;
-}
-
-/**
- * 辅助函数：获取强度徽章
- */
-function getStrengthBadge(strength) {
-    if (strength === 'strong') {
-        return '<span class="badge badge-danger">强规则</span>';
-    } else {
-        return '<span class="badge badge-warning">弱规则</span>';
-    }
 }
 
 /**

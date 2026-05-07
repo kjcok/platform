@@ -122,9 +122,11 @@ def run_evaluation(file_id, rules_config, upload_folder='data'):
                         'type_float': 'float'
                     }
                     exp_params['type_'] = type_map.get(rule_type, 'str')
-                elif rule_type == 'between':
+                elif rule_type in ['between', 'expect_column_values_to_be_between', 'expect_column_values_to_be_between_dates']:
                     exp_params['min_value'] = params.get('min_value')
                     exp_params['max_value'] = params.get('max_value')
+                    if 'mostly' in params:
+                        exp_params['mostly'] = params['mostly']
                 elif rule_type == 'in_set':
                     exp_params['value_set'] = params.get('value_set', [])
                 elif rule_type == 'length_between':

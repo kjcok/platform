@@ -13,12 +13,14 @@ class AssetManager:
     @staticmethod
     def create_asset(session: Session, name: str, data_source: str, 
                     asset_type: str = 'table', owner: str = None, 
-                    description: str = None, quality_score_weight: float = 1.0):
+                    description: str = None, quality_score_weight: float = 1.0,
+                    db_config: str = None):
         """创建资产"""
         asset = Asset(
             name=name,
             data_source=data_source,
             asset_type=asset_type,
+            db_config=db_config,
             owner=owner,
             description=description,
             quality_score_weight=quality_score_weight,

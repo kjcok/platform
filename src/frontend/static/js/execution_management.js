@@ -5,8 +5,19 @@ let selectedAssetIds = new Set();
 let currentExecutionResult = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    loadAssets();
-    loadRecentExecutions();
+    console.log('✅ DOM 加载完成');
+    console.log('API_BASE_URL:', typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '❌ 未定义');
+    console.log('apiRequest:', typeof apiRequest !== 'undefined' ? '✅ 已定义' : '❌ 未定义');
+    console.log('getStatusBadge:', typeof getStatusBadge !== 'undefined' ? '✅ 已定义' : '❌ 未定义');
+    console.log('formatDate:', typeof formatDate !== 'undefined' ? '✅ 已定义' : '❌ 未定义');
+    
+    try {
+        loadAssets();
+        loadRecentExecutions();
+        console.log('✅ 数据加载函数已调用');
+    } catch (error) {
+        console.error('❌ 调用加载函数时出错:', error);
+    }
 });
 
 /**
@@ -17,13 +28,18 @@ async function loadAssets() {
         const response = await apiRequest(`${API_BASE_URL}/assets?page=1&per_page=100`);
         assets = Array.isArray(response.data) ? response.data : (response.data.assets || []);
         
-        // 为每个资产获取调度状态和最后执行记录
-        for (let asset of assets) {
-            await loadAssetScheduleStatus(asset);
-            await loadAssetLastExecution(asset);
-        }
-        
+        // 先渲染基础数据（快速显示，避免页面空白）
         renderAssetList(assets);
+        
+        // 异步并行加载附加信息（不阻塞页面显示）
+        Promise.all(assets.map(asset => Promise.all([
+            loadAssetScheduleStatus(asset),
+            loadAssetLastExecution(asset)
+        ]))).then(() => {
+            renderAssetList(assets);
+        }).catch(error => {
+            console.warn('加载附加信息失败:', error);
+        });
     } catch (error) {
         console.error('加载资产列表失败:', error);
         showError('加载资产列表失败: ' + error.message);
@@ -183,7 +199,7 @@ async function runAllActiveAssets() {
         return;
     }
     
-    showToast(`正在运行所有 ${activeAssets.length} 个激活资产...`, 'info');
+    showInfo(`正在运行所有 ${activeAssets.length} 个激活资产...`);
     
     selectedAssetIds = new Set(activeAssets.map(a => a.id));
     await batchRunSelected();
@@ -193,17 +209,29 @@ async function runAllActiveAssets() {
  * 运行单个资产
  */
 async function runSingleAsset(assetId) {
-    const response = await apiRequest(`${API_BASE_URL}/validations`, 'POST', {
-        asset_id: assetId,
-        auto_archive: true,
-        auto_create_issue: false  // 手动决定是否创建问题
+    const response = await fetch(`${API_BASE_URL}/validations`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            asset_id: assetId,
+            auto_archive: true,
+            auto_create_issue: false
+        })
     });
-    
-    return response;
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.message || '请求失败');
+    }
+
+    return result;
 }
 
 /**
- * 运行资产（带确认）
+ * 运行单个资产
  */
 async function runAsset(assetId) {
     const asset = assets.find(a => a.id === assetId);
@@ -213,7 +241,15 @@ async function runAsset(assetId) {
     
     try {
         const result = await runSingleAsset(assetId);
-        showSuccess(`资产 "${asset.name}" 运行完成`);
+        const execStatus = result.data?.status || 'success';
+        
+        if (execStatus === 'success' || execStatus === 'partial') {
+            showSuccess(`资产 "${asset.name}" 运行完成 - ${result.data?.passed_rules || 0} 条规则通过, ${result.data?.failed_rules || 0} 条失败`);
+        } else if (execStatus === 'failed') {
+            showWarning(`资产 "${asset.name}" 运行完成, 但存在失败规则 - ${result.data?.passed_rules || 0} 条规则通过, ${result.data?.failed_rules || 0} 条失败`);
+        } else {
+            showSuccess(`资产 "${asset.name}" 运行完成`);
+        }
         
         // 显示执行结果
         showExecutionResult(result.data);
@@ -587,7 +623,6 @@ function showBatchRunResults(results) {
     } else {
         let message = `批量运行完成: 成功 ${successCount} 个, 失败 ${failCount} 个`;
         
-        // 如果有失败，显示详细信息（通过toast展示前几个）
         const failedAssets = results.filter(r => !r.success);
         const firstFew = failedAssets.slice(0, 3);
         
@@ -600,7 +635,7 @@ function showBatchRunResults(results) {
             message += `\n... 还有 ${failedAssets.length - 3} 个失败`;
         }
         
-        showError(message);
+        showWarning(message);  // 批量运行有失败用 warning 而不是 error
     }
 }
 
@@ -644,6 +679,8 @@ function closeModal(modalId) {
 function getStatusBadge(status) {
     const badges = {
         'success': '<span class="status-badge success">✅ 成功</span>',
+        'partial': '<span class="status-badge" style="background: #fff3cd; color: #856404;">⚠️ 部分成功</span>',
+        'failed': '<span class="status-badge failed">❌ 失败</span>',
         'failed': '<span class="status-badge failed">❌ 失败</span>',
         'running': '<span class="status-badge running">⏳ 运行中</span>',
         'pending': '<span class="status-badge running">⏸️ 等待中</span>'

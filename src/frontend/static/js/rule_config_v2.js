@@ -1,4 +1,4 @@
-// DataQ 数质宝 - 规则配置（GE Expectations版）
+﻿// DataQ 数质宝 - 规则配置（GE Expectations版）
 
 let selectedExpectation = null;
 let assetId = null;
@@ -411,34 +411,74 @@ const GE_EXPECTATIONS = {
         description: '检查日期时间相关特征',
         expectations: [
             {
+                id: 'expect_column_values_to_be_dateutil_parseable',
+                name: '日期可解析性校验',
+                description: '检查列值可以被 dateutil 解析为有效日期',
+                params: [
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ],
+                autoGenerateName: (column) => `${column}_日期可解析校验`
+            },
+            {
+                id: 'expect_column_values_to_match_strftime_format',
+                name: '日期格式匹配校验',
+                description: '检查列值符合指定的 strftime 日期格式',
+                params: [
+                    { name: 'strftime_format', label: '日期格式(strftime)', type: 'text', placeholder: '例如: %Y-%m-%d, %Y/%m/%d %H:%M:%S', required: true },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ],
+                autoGenerateName: (column) => `${column}_日期格式校验`
+            },
+            {
                 id: 'expect_column_values_to_be_increasing',
-                name: '递增序列校验',
-                description: '检查列值是递增的',
+                name: '日期递增校验',
+                description: '检查日期列值是逐行递增的',
                 params: [
                     { name: 'strictly', label: '严格递增', type: 'select', options: ['true', 'false'], default: 'false' },
                     { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
                 ],
-                autoGenerateName: (column) => `${column}_递增校验`
+                autoGenerateName: (column) => `${column}_日期递增校验`
             },
             {
                 id: 'expect_column_values_to_be_decreasing',
-                name: '递减序列校验',
-                description: '检查列值是递减的',
+                name: '日期递减校验',
+                description: '检查日期列值是逐行递减的',
                 params: [
                     { name: 'strictly', label: '严格递减', type: 'select', options: ['true', 'false'], default: 'false' },
                     { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
                 ],
-                autoGenerateName: (column) => `${column}_递减校验`
+                autoGenerateName: (column) => `${column}_日期递减校验`
+            },
+            {
+                id: 'expect_column_values_to_be_between',
+                name: '日期范围校验（逐行）⭐',
+                description: '检查每一行的日期值是否在指定范围内（推荐用于发现异常数据）',
+                params: [
+                    { name: 'min_value', label: '最小日期', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'max_value', label: '最大日期', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ],
+                autoGenerateName: (column) => `${column}_日期范围校验`
             },
             {
                 id: 'expect_column_min_to_be_between',
-                name: '日期最小值校验',
-                description: '检查日期的最小值在范围内',
+                name: '最小日期范围校验（整列聚合）',
+                description: '检查整列日期的最小值是否在范围内（仅检查1个聚合值）',
                 params: [
-                    { name: 'min_value', label: '最小日期', type: 'text', placeholder: 'YYYY-MM-DD', required: true },
-                    { name: 'max_value', label: '最大日期', type: 'text', placeholder: 'YYYY-MM-DD', required: true }
+                    { name: 'min_value', label: '最小值下限', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'max_value', label: '最小值上限', type: 'text', placeholder: 'YYYY-MM-DD' }
                 ],
-                autoGenerateName: (column) => `${column}_日期范围校验`
+                autoGenerateName: (column) => `${column}_最小日期校验`
+            },
+            {
+                id: 'expect_column_max_to_be_between',
+                name: '最大日期范围校验（整列聚合）',
+                description: '检查整列日期的最大值是否在范围内（仅检查1个聚合值）',
+                params: [
+                    { name: 'min_value', label: '最大值下限', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'max_value', label: '最大值上限', type: 'text', placeholder: 'YYYY-MM-DD' }
+                ],
+                autoGenerateName: (column) => `${column}_最大日期校验`
             }
         ]
     },
@@ -567,7 +607,7 @@ async function selectExpectation(categoryKey, expectationId) {
     // column_values、column_aggregates分类下的所有expectations都需要字段
     // column_pairs需要主字段和对比列
     // table和multicolumn不需要单独选择字段（通过参数配置）
-    const needsColumn = ['column_values', 'column_aggregates', 'column_pairs'].includes(categoryKey);
+    const needsColumn = ['column_values', 'column_aggregates', 'column_pairs', 'datetime'].includes(categoryKey);
     const needsColumnB = selectedExpectation.params.some(p => p.name === 'column_B');
     
     // 显示/隐藏字段选择区域
@@ -887,7 +927,7 @@ function updateCreateButtonState() {
         GE_EXPECTATIONS[key].expectations.some(e => e.id === selectedExpectation.id)
     );
     
-    const needsColumn = ['column_values', 'column_aggregates', 'column_pairs'].includes(categoryKey);
+    const needsColumn = ['column_values', 'column_aggregates', 'column_pairs', 'datetime'].includes(categoryKey);
     const hasColumn = !needsColumn || selectedFields.length > 0;
     
     // 检查是否需要对比列
@@ -1012,3 +1052,4 @@ function updateConfigUI() {
     updateSQLPreview();
     updateCreateButton();
 }
+

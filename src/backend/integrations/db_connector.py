@@ -286,12 +286,63 @@ class OracleConnector(DatabaseConnector):
         }
 
 
+class SQLiteConnector(DatabaseConnector):
+    """SQLite 数据库连接器"""
+    
+    def __init__(self, db_path: str, **kwargs):
+        """
+        初始化 SQLite 连接器
+        
+        Args:
+            db_path: SQLite 数据库文件路径
+            **kwargs: 其他参数
+        """
+        connection_string = f"sqlite:///{db_path}"
+        
+        if kwargs:
+            params = '&'.join([f"{k}={v}" for k, v in kwargs.items()])
+            connection_string += f"?{params}"
+        
+        super().__init__(connection_string)
+        self.db_path = db_path
+    
+    def get_db_type(self) -> str:
+        return "SQLite"
+    
+    def get_table_info(self, table_name: str) -> Dict:
+        """获取 SQLite 表结构"""
+        # 获取表结构
+        query = f"PRAGMA table_info('{table_name}')"
+        df = self.execute_query(query)
+        
+        columns = []
+        for _, row in df.iterrows():
+            columns.append({
+                'COLUMN_NAME': row['name'],
+                'DATA_TYPE': row['type'],
+                'IS_NULLABLE': 'NO' if row['notnull'] else 'YES',
+                'COLUMN_DEFAULT': row['dflt_value'],
+                'PRIMARY_KEY': bool(row['pk'])
+            })
+        
+        # 获取行数
+        count_query = f"SELECT COUNT(*) as cnt FROM '{table_name}'"
+        count_df = self.execute_query(count_query)
+        row_count = count_df.iloc[0]['cnt'] if len(count_df) > 0 else 0
+        
+        return {
+            'table_name': table_name,
+            'columns': columns,
+            'row_count': row_count
+        }
+
+
 def create_connector(db_type: str, **kwargs) -> DatabaseConnector:
     """
     工厂函数：创建数据库连接器
     
     Args:
-        db_type: 数据库类型 ('mysql', 'postgresql', 'sqlserver', 'oracle')
+        db_type: 数据库类型 ('mysql', 'postgresql', 'sqlserver', 'oracle', 'sqlite')
         **kwargs: 连接参数
     
     Returns:
@@ -303,7 +354,8 @@ def create_connector(db_type: str, **kwargs) -> DatabaseConnector:
         'postgres': PostgreSQLConnector,
         'sqlserver': SQLServerConnector,
         'mssql': SQLServerConnector,
-        'oracle': OracleConnector
+        'oracle': OracleConnector,
+        'sqlite': SQLiteConnector
     }
     
     connector_class = connectors.get(db_type.lower())

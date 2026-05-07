@@ -5,6 +5,247 @@
 let currentAssetId = null;
 let assets = [];
 
+// Great Expectations 内置 Expectations 定义（用于参数编辑）
+// 注意：保持与 rule_config_v2.js 中的定义一致
+const GE_EXPECTATIONS = {
+    'column_values': {
+        name: '列值校验',
+        expectations: [
+            {
+                id: 'expect_column_values_to_not_be_null',
+                name: '非空校验',
+                params: [
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_be_unique',
+                name: '唯一性校验',
+                params: []
+            },
+            {
+                id: 'expect_column_values_to_be_in_type_list',
+                name: '数据类型校验',
+                params: [
+                    { name: 'type_list', label: '允许的类型', type: 'select', options: ['STRING', 'INTEGER', 'FLOAT', 'BOOLEAN', 'DATETIME'], default: 'STRING' }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_match_regex',
+                name: '正则匹配校验',
+                params: [
+                    { name: 'regex', label: '正则表达式', type: 'text', placeholder: '例如: ^1[3-9]\\d{9}$', required: true },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_not_match_regex',
+                name: '正则排除校验',
+                params: [
+                    { name: 'regex', label: '正则表达式', type: 'text', placeholder: '例如: password', required: true },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_be_in_set',
+                name: '枚举值校验',
+                params: [
+                    { name: 'value_set', label: '允许的取值（每行一个）', type: 'textarea', placeholder: '例如:\n男\n女\n其他', required: true },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_not_be_in_set',
+                name: '排除值校验',
+                params: [
+                    { name: 'value_set', label: '禁止的取值（每行一个）', type: 'textarea', placeholder: '例如:\nNULL\nN/A\n-', required: true },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_be_between',
+                name: '数值范围校验',
+                params: [
+                    { name: 'min_value', label: '最小值', type: 'number', placeholder: '留空表示不限制' },
+                    { name: 'max_value', label: '最大值', type: 'number', placeholder: '留空表示不限制' },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            }
+        ]
+    },
+    'datetime': {
+        name: '日期时间校验',
+        expectations: [
+            {
+                id: 'expect_column_values_to_be_dateutil_parseable',
+                name: '日期可解析性校验',
+                params: [
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_match_strftime_format',
+                name: '日期格式匹配校验',
+                params: [
+                    { name: 'strftime_format', label: '日期格式(strftime)', type: 'text', placeholder: '例如: %Y-%m-%d', required: true },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_be_increasing',
+                name: '日期递增校验',
+                params: [
+                    { name: 'strictly', label: '严格递增', type: 'select', options: ['true', 'false'], default: 'false' },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_be_decreasing',
+                name: '日期递减校验',
+                params: [
+                    { name: 'strictly', label: '严格递减', type: 'select', options: ['true', 'false'], default: 'false' },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_values_to_be_between',
+                name: '日期范围校验（逐行校验）⭐',
+                params: [
+                    { name: 'min_value', label: '最小日期', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'max_value', label: '最大日期', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
+                ]
+            },
+            {
+                id: 'expect_column_min_to_be_between',
+                name: '最小日期范围校验（整列聚合）',
+                params: [
+                    { name: 'min_value', label: '最小值下限', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'max_value', label: '最小值上限', type: 'text', placeholder: 'YYYY-MM-DD' }
+                ]
+            },
+            {
+                id: 'expect_column_max_to_be_between',
+                name: '最大日期范围校验（整列聚合）',
+                params: [
+                    { name: 'min_value', label: '最大值下限', type: 'text', placeholder: 'YYYY-MM-DD' },
+                    { name: 'max_value', label: '最大值上限', type: 'text', placeholder: 'YYYY-MM-DD' }
+                ]
+            }
+        ]
+    }
+};
+
+/**
+ * 根据规则类型查找 Expectation 定义
+ */
+function findExpectationByRuleType(ruleType) {
+    for (const categoryKey of Object.keys(GE_EXPECTATIONS)) {
+        const category = GE_EXPECTATIONS[categoryKey];
+        const expectation = category.expectations.find(exp => exp.id === ruleType);
+        if (expectation) {
+            return expectation;
+        }
+    }
+    return null;
+}
+
+/**
+ * 渲染规则参数表单 HTML
+ */
+function renderRuleParamsForm(expectation, ruleConfigJson) {
+    if (!expectation || !expectation.params || expectation.params.length === 0) {
+        return '';
+    }
+    
+    // 解析 rule_config_json
+    let configValues = {};
+    if (ruleConfigJson) {
+        try {
+            configValues = typeof ruleConfigJson === 'string' ? JSON.parse(ruleConfigJson) : ruleConfigJson;
+        } catch (e) {
+            console.warn('解析 rule_config_json 失败:', e);
+        }
+    }
+    
+    let paramsHtml = `
+        <div class="form-divider" style="margin: 1.5rem 0; border-top: 1px solid #e2e8f0;"></div>
+        <div class="form-section-title" style="font-weight: 600; color: #374151; margin-bottom: 1rem;">⚙️ 规则参数</div>
+    `;
+    
+    expectation.params.forEach(param => {
+        const value = configValues[param.name] !== undefined ? configValues[param.name] : (param.default !== undefined ? param.default : '');
+        
+        let inputHtml = '';
+        
+        if (param.type === 'select') {
+            inputHtml = `
+                <select id="edit-param-${param.name}" class="form-input">
+                    ${param.options.map(opt => `
+                        <option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>
+                    `).join('')}
+                </select>
+            `;
+        } else if (param.type === 'textarea') {
+            // 处理数组类型的 value_set，转为换行分隔字符串
+            const displayValue = Array.isArray(value) ? value.join('\n') : value;
+            inputHtml = `
+                <textarea id="edit-param-${param.name}" class="form-textarea" rows="3"
+                    placeholder="${param.placeholder || ''}">${displayValue || ''}</textarea>
+            `;
+        } else {
+            inputHtml = `
+                <input type="${param.type}" id="edit-param-${param.name}" class="form-input"
+                    value="${value || ''}" placeholder="${param.placeholder || ''}"
+                    ${param.min !== undefined ? `min="${param.min}"` : ''}
+                    ${param.max !== undefined ? `max="${param.max}"` : ''}
+                    ${param.step !== undefined ? `step="${param.step}"` : ''}>
+            `;
+        }
+        
+        paramsHtml += `
+            <div class="form-group">
+                <label class="form-label">${param.label}${param.required ? ' *' : ''}</label>
+                ${inputHtml}
+            </div>
+        `;
+    });
+    
+    return paramsHtml;
+}
+
+/**
+ * 收集规则参数值
+ */
+function collectRuleParams(expectation) {
+    if (!expectation || !expectation.params) {
+        return {};
+    }
+    
+    const params = {};
+    
+    expectation.params.forEach(param => {
+        const element = document.getElementById(`edit-param-${param.name}`);
+        if (element) {
+            let value = element.value;
+            
+            // 类型转换
+            if (param.type === 'number') {
+                value = value === '' ? null : parseFloat(value);
+            } else if (param.type === 'textarea' && param.name === 'value_set') {
+                // 将换行分隔的文本转为数组
+                value = value.split('\n').map(v => v.trim()).filter(v => v);
+            }
+            
+            if (value !== null && value !== '') {
+                params[param.name] = value;
+            }
+        }
+    });
+    
+    return params;
+}
+
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', () => {
     loadAssets();
@@ -120,29 +361,27 @@ function renderRulesList(rules) {
     
     let html = '';
     rules.forEach(rule => {
+        const ruleTypeDisplay = rule.expectation_type || rule.rule_type || 'unknown';
         html += `
             <div class="rule-card">
                 <div class="rule-card-header">
-                    <div class="rule-name">${rule.name}</div>
-                    <span class="rule-badge ${rule.strength === 'strong' ? 'badge-strong' : 'badge-weak'}">
-                        ${rule.strength === 'strong' ? '强规则' : '弱规则'}
-                    </span>
+                    <div class="rule-name" title="${rule.name}">${rule.name}</div>
                 </div>
                 <div class="rule-info">
                     <div class="rule-info-item">
                         <div class="rule-info-label">规则类型</div>
-                        <div class="rule-info-value">${getRuleTypeLabel(rule.rule_type)}</div>
+                        <div class="rule-info-value">${getRuleTypeLabel(ruleTypeDisplay)}</div>
                     </div>
                     <div class="rule-info-item">
                         <div class="rule-info-label">字段</div>
-                        <div class="rule-info-value">${rule.column_name || '-'}</div>
+                        <div class="rule-info-value" title="${rule.column_name || '-'}">${rule.column_name || '-'}</div>
                     </div>
                     <div class="rule-info-item">
                         <div class="rule-info-label">状态</div>
                         <div class="rule-info-value">${rule.enabled ? '✅ 已启用' : '⏸️ 已禁用'}</div>
                     </div>
                 </div>
-                ${rule.description ? `<div class="rule-description">${rule.description}</div>` : ''}
+                ${rule.description ? `<div class="rule-description" title="${rule.description}">${rule.description}</div>` : ''}
                 <div class="rule-actions">
                     <button class="btn btn-secondary btn-small" onclick="editRule(${rule.id})">编辑</button>
                     <button class="btn btn-danger btn-small" onclick="deleteRule(${rule.id})">删除</button>
@@ -180,10 +419,17 @@ async function openEditModal(ruleId) {
         const response = await apiRequest(`${API_BASE_URL}/rules/${ruleId}`);
         const rule = response.data;
         
+        // 查找对应的 expectation 定义
+        const expectation = findExpectationByRuleType(rule.rule_type) || 
+                           findExpectationByRuleType(rule.expectation_type);
+        
+        // 渲染参数表单
+        const paramsFormHtml = renderRuleParamsForm(expectation, rule.rule_config_json);
+        
         // 创建编辑模态框
         const modalHtml = `
             <div id="edit-rule-modal" class="modal show" style="display: flex;">
-                <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-content" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
                     <div class="modal-header">
                         <h3>✏️ 编辑规则</h3>
                         <button class="close-btn" onclick="closeEditModal()">&times;</button>
@@ -195,11 +441,10 @@ async function openEditModal(ruleId) {
                                 value="${rule.name}" placeholder="请输入规则名称">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">规则强度</label>
-                            <select id="edit-rule-strength" class="form-input">
-                                <option value="strong" ${rule.strength === 'strong' ? 'selected' : ''}>🔴 强规则（失败即中断）</option>
-                                <option value="weak" ${rule.strength === 'weak' ? 'selected' : ''}>🟡 弱规则（仅记录）</option>
-                            </select>
+                            <label class="form-label">规则类型</label>
+                            <div class="form-input" style="background-color: #f7fafc; color: #666;">
+                                ${expectation ? expectation.name : (getRuleTypeLabel(rule.rule_type) || rule.rule_type)}
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">字段名</label>
@@ -214,6 +459,7 @@ async function openEditModal(ruleId) {
                                 <option value="false" ${!rule.is_active ? 'selected' : ''}>⏸️ 禁用</option>
                             </select>
                         </div>
+                        ${paramsFormHtml}
                         <div class="form-group">
                             <label class="form-label">规则描述</label>
                             <textarea id="edit-rule-description" class="form-textarea" 
@@ -222,7 +468,7 @@ async function openEditModal(ruleId) {
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" onclick="closeEditModal()">取消</button>
-                        <button class="btn btn-primary" onclick="saveRuleEdit(${rule.id})">保存修改</button>
+                        <button class="btn btn-primary" onclick="saveRuleEdit(${rule.id}, ${expectation ? 'true' : 'false'})">保存修改</button>
                     </div>
                 </div>
             </div>
@@ -255,10 +501,9 @@ function closeEditModal() {
 /**
  * 保存规则修改
  */
-async function saveRuleEdit(ruleId) {
+async function saveRuleEdit(ruleId, hasExpectation) {
     const data = {
         name: document.getElementById('edit-rule-name').value.trim(),
-        strength: document.getElementById('edit-rule-strength').value,
         column_name: document.getElementById('edit-column-name').value.trim() || null,
         is_active: document.getElementById('edit-rule-active').value === 'true',
         description: document.getElementById('edit-rule-description').value.trim() || null
@@ -267,6 +512,34 @@ async function saveRuleEdit(ruleId) {
     if (!data.name) {
         showWarning('请输入规则名称');
         return;
+    }
+    
+    // 如果有 expectation，收集参数
+    if (hasExpectation) {
+        try {
+            // 先获取规则详情，重新查找 expectation
+            const response = await apiRequest(`${API_BASE_URL}/rules/${ruleId}`);
+            const rule = response.data;
+            const expectation = findExpectationByRuleType(rule.rule_type) ||
+                               findExpectationByRuleType(rule.expectation_type);
+
+            if (expectation) {
+                const params = collectRuleParams(expectation);
+                // 合并现有的 parameters（如果是字符串先解析）
+                let existingConfig = {};
+                if (rule.parameters) {
+                    try {
+                        existingConfig = typeof rule.parameters === 'string' ?
+                            JSON.parse(rule.parameters) : rule.parameters;
+                    } catch (e) {
+                        console.warn('解析现有 parameters 失败:', e);
+                    }
+                }
+                data.parameters = JSON.stringify({ ...existingConfig, ...params });
+            }
+        } catch (e) {
+            console.error('收集参数时出错:', e);
+        }
     }
     
     try {

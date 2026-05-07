@@ -80,11 +80,13 @@ function drawCharts(data) {
 // 绘制校验趋势图
 async function drawValidationTrendChart() {
     try {
-        // TODO: 从 API 获取趋势数据
-        // 这里使用模拟数据
-        const labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-        const successData = [85, 90, 88, 92, 95, 87, 93];
-        const failedData = [15, 10, 12, 8, 5, 13, 7];
+        // 从 API 获取真实趋势数据
+        const response = await apiRequest(`${API_BASE_URL}/statistics/trend`);
+        const trendData = response.data.trend;
+        
+        const labels = trendData.map(item => item.day_label);
+        const successData = trendData.map(item => item.success);
+        const failedData = trendData.map(item => item.failed);
         
         const ctx = document.getElementById('validation-trend-chart').getContext('2d');
         new Chart(ctx, {
@@ -123,6 +125,45 @@ async function drawValidationTrendChart() {
         
     } catch (error) {
         console.error('绘制趋势图失败:', error);
+        // 降级：使用空数据
+        const labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+        const successData = [0, 0, 0, 0, 0, 0, 0];
+        const failedData = [0, 0, 0, 0, 0, 0, 0];
+        
+        const ctx = document.getElementById('validation-trend-chart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '成功',
+                    data: successData,
+                    borderColor: '#48bb78',
+                    backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: '失败',
+                    data: failedData,
+                    borderColor: '#fc8181',
+                    backgroundColor: 'rgba(252, 129, 129, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
     }
 }
 

@@ -65,15 +65,19 @@ function renderIssuesTable() {
                        value="${issue.id}" 
                        onchange="updateSelection()">
             </td>
-            <td>#${issue.id}</td>
-            <td>${issue.asset_name || '-'}</td>
-            <td>${issue.rule_name || '-'}</td>
-            <td>${getPriorityBadge(issue.priority)}</td>
-            <td>${getStatusBadge(issue.status)}</td>
-            <td>${issue.assignee || '-'}</td>
-            <td>${formatDate(issue.created_at)}</td>
-            <td>
-                <button class="btn btn-primary" onclick="viewIssue(${issue.id})">查看</button>
+            <td class="col-id">#${issue.id}</td>
+            <td class="col-name">
+                <span class="cell-truncate" title="${issue.asset_name || '-'}">${issue.asset_name || '-'}</span>
+            </td>
+            <td class="col-name">
+                <span class="cell-truncate" title="${issue.rule_name || '-'}">${issue.rule_name || '-'}</span>
+            </td>
+            <td class="col-status">${getPriorityBadge(issue.priority)}</td>
+            <td class="col-status">${getStatusBadge(issue.status)}</td>
+            <td class="col-type">${issue.assignee || '-'}</td>
+            <td class="col-date">${formatDate(issue.created_at)}</td>
+            <td class="col-actions">
+                <button class="btn btn-primary btn-sm" onclick="viewIssue(${issue.id})">查看</button>
             </td>
         </tr>
     `).join('');

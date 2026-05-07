@@ -33,6 +33,7 @@ class Asset(Base):
     asset_type = Column(String(50), nullable=False, default='table', 
                        comment='资产类型: table/csv/excel/database')
     data_source = Column(String(512), nullable=False, comment='数据源路径或连接信息')
+    db_config = Column(Text, nullable=True, comment='数据库配置(JSON格式)，包含表名等信息')
     owner = Column(String(256), nullable=True, comment='质量负责人')
     description = Column(Text, nullable=True, comment='资产描述')
     quality_score_weight = Column(Float, default=1.0, comment='质量分权重 (1-10)')
@@ -51,6 +52,7 @@ class Asset(Base):
             'name': self.name,
             'asset_type': self.asset_type,
             'data_source': self.data_source,
+            'db_config': self.db_config,
             'owner': self.owner,
             'description': self.description,
             'quality_score_weight': self.quality_score_weight,

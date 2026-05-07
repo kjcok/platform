@@ -19,17 +19,17 @@ async function loadValidations() {
         
         tbody.innerHTML = histories.map(history => `
             <tr>
-                <td>#${history.id}</td>
-                <td>${history.asset_name || '-'}</td>
-                <td>${history.total_rules || 0}</td>
-                <td>${(history.success_rate || 0).toFixed(1)}%</td>
-                <td>${getStatusBadge(history.status)}</td>
-                <td>${formatDate(history.created_at)}</td>
-                <td>
+                <td class="col-id">#${history.id}</td>
+                <td class="col-name">
+                    <span class="cell-truncate" title="${history.asset_name || '-'}">${history.asset_name || '-'}</span>
+                </td>
+                <td class="col-type">${history.total_rules || 0}</td>
+                <td class="col-type">${(history.success_rate || 0).toFixed(1)}%</td>
+                <td class="col-status">${getStatusBadge(history.status)}</td>
+                <td class="col-date">${formatDate(history.created_at)}</td>
+                <td class="col-actions">
                     <button class="btn btn-primary btn-sm" onclick="viewValidationDetail(${history.id})">详情</button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="exportJson(${history.id})" title="导出JSON结果">
-                        <i class="fas fa-download"></i> 导出
-                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="exportJson(${history.id})" title="导出JSON结果">导出</button>
                 </td>
             </tr>
         `).join('');

@@ -14,8 +14,8 @@ from api import register_api
 # 配置路径（使用绝对路径）
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # src/backend
 PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))  # platform
-UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'data')
-REPORTS_FOLDER = os.path.join(PROJECT_ROOT, 'output', 'reports')
+UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'src', 'output', 'data')
+REPORTS_FOLDER = os.path.join(PROJECT_ROOT, 'src', 'output', 'reports')
 
 # 确保目录存在
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

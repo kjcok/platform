@@ -239,18 +239,10 @@
         <div class="filter-section">
             <div class="filter-row">
                 <div class="filter-group">
-                    <label>规则强度</label>
-                    <select id="filter-strength">
-                        <option value="">全部</option>
-                        <option value="strong">强规则</option>
-                        <option value="weak">弱规则</option>
-                    </select>
-                </div>
-                <div class="filter-group">
                     <label>校验结果</label>
                     <select id="filter-result">
                         <option value="">全部</option>
-                        <option value="passed">通过</option>
+                        <option value="success">通过</option>
                         <option value="failed">失败</option>
                     </select>
                 </div>
@@ -267,7 +259,6 @@
                 <tr>
                     <th>规则名称</th>
                     <th>规则类型</th>
-                    <th>规则强度</th>
                     <th>校验结果</th>
                     <th>异常数量</th>
                     <th>操作</th>
@@ -275,7 +266,7 @@
             </thead>
             <tbody id="rules-table-body">
                 <tr>
-                    <td colspan="6" class="loading">加载中...</td>
+                    <td colspan="5" class="loading">加载中...</td>
                 </tr>
             </tbody>
         </table>

@@ -1,0 +1,294 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - heading "📊 DataQ 数质宝" [level=1] [ref=e5]
+      - list [ref=e6]:
+        - listitem [ref=e7]:
+          - link "质量大盘" [ref=e8] [cursor=pointer]:
+            - /url: /dashboard
+        - listitem [ref=e9]:
+          - link "资产管理" [ref=e10] [cursor=pointer]:
+            - /url: /assets
+        - listitem [ref=e11]:
+          - link "规则配置" [ref=e12] [cursor=pointer]:
+            - /url: /rule-config
+        - listitem [ref=e13]:
+          - link "规则管理" [ref=e14] [cursor=pointer]:
+            - /url: /rule-management
+        - listitem [ref=e15]:
+          - link "运行管理" [ref=e16] [cursor=pointer]:
+            - /url: /execution-management
+        - listitem [ref=e17]:
+          - link "问题管理" [ref=e18] [cursor=pointer]:
+            - /url: /issues
+        - listitem [ref=e19]:
+          - link "校验历史" [ref=e20] [cursor=pointer]:
+            - /url: /validations
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - heading "🚀 运行管理" [level=2] [ref=e25]
+          - generic [ref=e26]:
+            - button "▶️ 批量运行选中资产" [ref=e27] [cursor=pointer]
+            - button "⚡ 运行所有激活资产" [ref=e28] [cursor=pointer]
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - heading "📊 资产执行列表" [level=3] [ref=e31]
+            - generic [ref=e32]:
+              - textbox "搜索资产..." [ref=e33]
+              - combobox [ref=e34]:
+                - option "全部状态" [selected]
+                - option "已调度"
+                - option "未调度"
+          - table [ref=e35]:
+            - rowgroup [ref=e36]:
+              - row "资产ID 资产名称 数据源 规则数量 调度状态 最后运行时间 最后运行状态 操作" [ref=e37]:
+                - columnheader [ref=e38]:
+                  - checkbox [ref=e39]
+                - columnheader "资产ID" [ref=e40]
+                - columnheader "资产名称" [ref=e41]
+                - columnheader "数据源" [ref=e42]
+                - columnheader "规则数量" [ref=e43]
+                - columnheader "调度状态" [ref=e44]
+                - columnheader "最后运行时间" [ref=e45]
+                - columnheader "最后运行状态" [ref=e46]
+                - columnheader "操作" [ref=e47]
+            - rowgroup [ref=e48]:
+              - row "#3 sqlitedb sqlite:///C:\\Users\\陈坤隽\\AppData\\Roaming\\DBeaverData\\workspace6\\.metadata\\sample-database-sqlite-1\\Chinook.db 0 条规则 ⏰ 已调度 - - ▶️ 运行 ⏰ 调度 📊 详情" [ref=e242]:
+                - cell [ref=e243]:
+                  - checkbox [ref=e244]
+                - cell "#3" [ref=e245]
+                - cell "sqlitedb" [ref=e246]
+                - cell "sqlite:///C:\\Users\\陈坤隽\\AppData\\Roaming\\DBeaverData\\workspace6\\.metadata\\sample-database-sqlite-1\\Chinook.db" [ref=e247]
+                - cell "0 条规则" [ref=e248]
+                - cell "⏰ 已调度" [ref=e249]:
+                  - generic [ref=e250]: ⏰ 已调度
+                - cell "-" [ref=e251]
+                - cell "-" [ref=e252]
+                - cell "▶️ 运行 ⏰ 调度 📊 详情" [ref=e253]:
+                  - button "▶️ 运行" [ref=e254] [cursor=pointer]
+                  - button "⏰ 调度" [ref=e255] [cursor=pointer]
+                  - button "📊 详情" [ref=e256] [cursor=pointer]
+              - row "#2 testcsv data_a731d2ade6aa450595e401f681589d9a.csv 1 条规则 ⏰ 已调度 2026/5/7 17:54:20 ❌ 失败 ▶️ 运行 ⏰ 调度 📊 详情" [ref=e257]:
+                - cell [ref=e258]:
+                  - checkbox [ref=e259]
+                - cell "#2" [ref=e260]
+                - cell "testcsv" [ref=e261]
+                - cell "data_a731d2ade6aa450595e401f681589d9a.csv" [ref=e262]
+                - cell "1 条规则" [ref=e263]
+                - cell "⏰ 已调度" [ref=e264]:
+                  - generic [ref=e265]: ⏰ 已调度
+                - cell "2026/5/7 17:54:20" [ref=e266]
+                - cell "❌ 失败" [ref=e267]:
+                  - generic [ref=e268]: ❌ 失败
+                - cell "▶️ 运行 ⏰ 调度 📊 详情" [ref=e269]:
+                  - button "▶️ 运行" [ref=e270] [cursor=pointer]
+                  - button "⏰ 调度" [ref=e271] [cursor=pointer]
+                  - button "📊 详情" [ref=e272] [cursor=pointer]
+              - row "#1 tripdata.csv data_f3072d32bdd446a19aafa5d9180efac2.csv 1 条规则 ⏰ 已调度 2026/5/7 17:33:49 ✅ 成功 ▶️ 运行 ⏰ 调度 📊 详情" [ref=e273]:
+                - cell [ref=e274]:
+                  - checkbox [ref=e275]
+                - cell "#1" [ref=e276]
+                - cell "tripdata.csv" [ref=e277]
+                - cell "data_f3072d32bdd446a19aafa5d9180efac2.csv" [ref=e278]
+                - cell "1 条规则" [ref=e279]
+                - cell "⏰ 已调度" [ref=e280]:
+                  - generic [ref=e281]: ⏰ 已调度
+                - cell "2026/5/7 17:33:49" [ref=e282]
+                - cell "✅ 成功" [ref=e283]:
+                  - generic [ref=e284]: ✅ 成功
+                - cell "▶️ 运行 ⏰ 调度 📊 详情" [ref=e285]:
+                  - button "▶️ 运行" [ref=e286] [cursor=pointer]
+                  - button "⏰ 调度" [ref=e287] [cursor=pointer]
+                  - button "📊 详情" [ref=e288] [cursor=pointer]
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - heading "📋 最近执行记录" [level=3] [ref=e53]
+            - button "🔄 刷新" [ref=e54] [cursor=pointer]
+          - table [ref=e55]:
+            - rowgroup [ref=e56]:
+              - row "执行ID 资产名称 触发方式 规则总数 通过/失败 成功率 执行时间 状态 操作" [ref=e57]:
+                - columnheader "执行ID" [ref=e58]
+                - columnheader "资产名称" [ref=e59]
+                - columnheader "触发方式" [ref=e60]
+                - columnheader "规则总数" [ref=e61]
+                - columnheader "通过/失败" [ref=e62]
+                - columnheader "成功率" [ref=e63]
+                - columnheader "执行时间" [ref=e64]
+                - columnheader "状态" [ref=e65]
+                - columnheader "操作" [ref=e66]
+            - rowgroup [ref=e67]:
+              - row "#21 testcsv manual 1 0 / 1 0.0% 2026/5/7 17:54:20 ❌ 失败 详情" [ref=e289]:
+                - cell "#21" [ref=e290]
+                - cell "testcsv" [ref=e291]
+                - cell "manual" [ref=e292]
+                - cell "1" [ref=e293]
+                - cell "0 / 1" [ref=e294]
+                - cell "0.0%" [ref=e295]
+                - cell "2026/5/7 17:54:20" [ref=e296]
+                - cell "❌ 失败" [ref=e297]:
+                  - generic [ref=e298]: ❌ 失败
+                - cell "详情" [ref=e299]:
+                  - button "详情" [ref=e300] [cursor=pointer]
+              - row "#20 testcsv manual 1 0 / 1 0.0% 2026/5/7 17:53:42 ❌ 失败 详情" [ref=e301]:
+                - cell "#20" [ref=e302]
+                - cell "testcsv" [ref=e303]
+                - cell "manual" [ref=e304]
+                - cell "1" [ref=e305]
+                - cell "0 / 1" [ref=e306]
+                - cell "0.0%" [ref=e307]
+                - cell "2026/5/7 17:53:42" [ref=e308]
+                - cell "❌ 失败" [ref=e309]:
+                  - generic [ref=e310]: ❌ 失败
+                - cell "详情" [ref=e311]:
+                  - button "详情" [ref=e312] [cursor=pointer]
+              - row "#19 testcsv manual 1 0 / 1 0.0% 2026/5/7 17:52:47 ❌ 失败 详情" [ref=e313]:
+                - cell "#19" [ref=e314]
+                - cell "testcsv" [ref=e315]
+                - cell "manual" [ref=e316]
+                - cell "1" [ref=e317]
+                - cell "0 / 1" [ref=e318]
+                - cell "0.0%" [ref=e319]
+                - cell "2026/5/7 17:52:47" [ref=e320]
+                - cell "❌ 失败" [ref=e321]:
+                  - generic [ref=e322]: ❌ 失败
+                - cell "详情" [ref=e323]:
+                  - button "详情" [ref=e324] [cursor=pointer]
+              - row "#18 testcsv manual 1 0 / 1 0.0% 2026/5/7 17:48:24 ❌ 失败 详情" [ref=e325]:
+                - cell "#18" [ref=e326]
+                - cell "testcsv" [ref=e327]
+                - cell "manual" [ref=e328]
+                - cell "1" [ref=e329]
+                - cell "0 / 1" [ref=e330]
+                - cell "0.0%" [ref=e331]
+                - cell "2026/5/7 17:48:24" [ref=e332]
+                - cell "❌ 失败" [ref=e333]:
+                  - generic [ref=e334]: ❌ 失败
+                - cell "详情" [ref=e335]:
+                  - button "详情" [ref=e336] [cursor=pointer]
+              - row "#17 testcsv manual 1 0 / 1 0.0% 2026/5/7 17:46:01 ❌ 失败 详情" [ref=e337]:
+                - cell "#17" [ref=e338]
+                - cell "testcsv" [ref=e339]
+                - cell "manual" [ref=e340]
+                - cell "1" [ref=e341]
+                - cell "0 / 1" [ref=e342]
+                - cell "0.0%" [ref=e343]
+                - cell "2026/5/7 17:46:01" [ref=e344]
+                - cell "❌ 失败" [ref=e345]:
+                  - generic [ref=e346]: ❌ 失败
+                - cell "详情" [ref=e347]:
+                  - button "详情" [ref=e348] [cursor=pointer]
+              - row "#16 tripdata.csv manual 2 2 / 0 100.0% 2026/5/7 17:33:49 ✅ 成功 详情" [ref=e349]:
+                - cell "#16" [ref=e350]
+                - cell "tripdata.csv" [ref=e351]
+                - cell "manual" [ref=e352]
+                - cell "2" [ref=e353]
+                - cell "2 / 0" [ref=e354]
+                - cell "100.0%" [ref=e355]
+                - cell "2026/5/7 17:33:49" [ref=e356]
+                - cell "✅ 成功" [ref=e357]:
+                  - generic [ref=e358]: ✅ 成功
+                - cell "详情" [ref=e359]:
+                  - button "详情" [ref=e360] [cursor=pointer]
+              - row "#14 testcsv manual 1 0 / 1 0.0% 2026/5/7 16:56:11 ❌ 失败 详情" [ref=e361]:
+                - cell "#14" [ref=e362]
+                - cell "testcsv" [ref=e363]
+                - cell "manual" [ref=e364]
+                - cell "1" [ref=e365]
+                - cell "0 / 1" [ref=e366]
+                - cell "0.0%" [ref=e367]
+                - cell "2026/5/7 16:56:11" [ref=e368]
+                - cell "❌ 失败" [ref=e369]:
+                  - generic [ref=e370]: ❌ 失败
+                - cell "详情" [ref=e371]:
+                  - button "详情" [ref=e372] [cursor=pointer]
+              - row "#6 testcsv manual 1 1 / 0 100.0% 2026/5/7 15:19:48 ✅ 成功 详情" [ref=e373]:
+                - cell "#6" [ref=e374]
+                - cell "testcsv" [ref=e375]
+                - cell "manual" [ref=e376]
+                - cell "1" [ref=e377]
+                - cell "1 / 0" [ref=e378]
+                - cell "100.0%" [ref=e379]
+                - cell "2026/5/7 15:19:48" [ref=e380]
+                - cell "✅ 成功" [ref=e381]:
+                  - generic [ref=e382]: ✅ 成功
+                - cell "详情" [ref=e383]:
+                  - button "详情" [ref=e384] [cursor=pointer]
+              - row "#5 testcsv manual 1 1 / 0 100.0% 2026/5/7 15:08:08 ✅ 成功 详情" [ref=e385]:
+                - cell "#5" [ref=e386]
+                - cell "testcsv" [ref=e387]
+                - cell "manual" [ref=e388]
+                - cell "1" [ref=e389]
+                - cell "1 / 0" [ref=e390]
+                - cell "100.0%" [ref=e391]
+                - cell "2026/5/7 15:08:08" [ref=e392]
+                - cell "✅ 成功" [ref=e393]:
+                  - generic [ref=e394]: ✅ 成功
+                - cell "详情" [ref=e395]:
+                  - button "详情" [ref=e396] [cursor=pointer]
+              - row "#3 testcsv manual 1 1 / 0 100.0% 2026/5/7 14:52:16 ✅ 成功 详情" [ref=e397]:
+                - cell "#3" [ref=e398]
+                - cell "testcsv" [ref=e399]
+                - cell "manual" [ref=e400]
+                - cell "1" [ref=e401]
+                - cell "1 / 0" [ref=e402]
+                - cell "100.0%" [ref=e403]
+                - cell "2026/5/7 14:52:16" [ref=e404]
+                - cell "✅ 成功" [ref=e405]:
+                  - generic [ref=e406]: ✅ 成功
+                - cell "详情" [ref=e407]:
+                  - button "详情" [ref=e408] [cursor=pointer]
+              - row "#2 testcsv manual 2 2 / 0 100.0% 2026/5/7 10:59:34 ✅ 成功 详情" [ref=e409]:
+                - cell "#2" [ref=e410]
+                - cell "testcsv" [ref=e411]
+                - cell "manual" [ref=e412]
+                - cell "2" [ref=e413]
+                - cell "2 / 0" [ref=e414]
+                - cell "100.0%" [ref=e415]
+                - cell "2026/5/7 10:59:34" [ref=e416]
+                - cell "✅ 成功" [ref=e417]:
+                  - generic [ref=e418]: ✅ 成功
+                - cell "详情" [ref=e419]:
+                  - button "详情" [ref=e420] [cursor=pointer]
+      - generic [ref=e422]:
+        - generic [ref=e423]:
+          - heading "执行结果详情" [level=3] [ref=e424]
+          - generic [ref=e425] [cursor=pointer]: ×
+        - generic [ref=e426]:
+          - generic [ref=e427]:
+            - generic [ref=e428]:
+              - generic [ref=e429]: "1"
+              - generic [ref=e430]: 规则总数
+            - generic [ref=e431]:
+              - generic [ref=e432]: "0"
+              - generic [ref=e433]: 通过规则
+            - generic [ref=e434]:
+              - generic [ref=e435]: "1"
+              - generic [ref=e436]: 失败规则
+            - generic [ref=e437]:
+              - generic [ref=e438]: 0.0%
+              - generic [ref=e439]: 成功率
+          - paragraph [ref=e440]:
+            - strong [ref=e441]: "状态:"
+            - generic [ref=e442]: ❌ 强规则失败
+          - paragraph [ref=e443]:
+            - strong [ref=e444]: "开始时间:"
+            - text: 2026/5/7 17:54:20
+          - paragraph [ref=e445]:
+            - strong [ref=e446]: "结束时间:"
+            - text: 2026/5/7 17:54:20
+          - paragraph [ref=e447]:
+            - strong [ref=e448]: "错误信息:"
+            - text: "强规则校验失败，中断执行: id_非空校验"
+        - generic [ref=e449]:
+          - button "关闭" [ref=e450] [cursor=pointer]
+          - button "📝 创建问题工单" [ref=e451] [cursor=pointer]
+  - contentinfo [ref=e70]:
+    - paragraph [ref=e72]: © 2026 DataQ 数质宝 - 数据质量管理平台
+  - button "🔔 2" [ref=e452] [cursor=pointer]:
+    - generic [ref=e74]: 🔔
+    - generic [ref=e453]: "2"
+  - generic [ref=e454]:
+    - text: ⚠️ 资产 "testcsv" 运行完成, 但存在失败规则 - 0 条规则通过, 1 条失败
+    - button "×" [ref=e455] [cursor=pointer]
