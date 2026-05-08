@@ -4,6 +4,7 @@
 支持强/弱规则控制、异常数据归档、问题工单自动生成
 """
 import os
+import uuid
 import warnings
 import pandas as pd
 import json
@@ -103,12 +104,15 @@ class QualityRunner:
         table_name = db_config.get('table') if isinstance(db_config, dict) else None
         df = self._load_data(source_path, asset.asset_type, table_name=table_name)
         
-        # 4. 执行每个规则的校验（所有规则统一按弱规则处理，全部执行完后再给出结果）
+        # 4. 生成运行批次号，同一次运行的所有规则共享
+        batch_id = str(uuid.uuid4())
+        
+        # 5. 执行每个规则的校验（所有规则统一按弱规则处理，全部执行完后再给出结果）
         results = []
 
         for rule in rules:
             try:
-                result = self._execute_single_rule(rule, df, asset_id, auto_archive, trigger_type)
+                result = self._execute_single_rule(rule, df, asset_id, auto_archive, trigger_type, batch_id)
                 results.append(result)
             except Exception as e:
                 # 记录执行错误，继续执行后续规则
@@ -330,8 +334,9 @@ class QualityRunner:
         except Exception as e:
             raise ValueError(f"加载数据失败: {str(e)}")
     
-    def _execute_single_rule(self, rule, df: pd.DataFrame, asset_id: int, 
-                            auto_archive: bool = True, trigger_type: str = 'manual') -> dict:
+    def _execute_single_rule(self, rule, df: pd.DataFrame, asset_id: int,
+                            auto_archive: bool = True, trigger_type: str = 'manual',
+                            batch_id: str = None) -> dict:
         """
         执行单个规则的校验
         
@@ -351,7 +356,8 @@ class QualityRunner:
             asset_id=asset_id,
             rule_id=rule.id,
             start_time=datetime.now(),
-            trigger_type=trigger_type
+            trigger_type=trigger_type,
+            batch_id=batch_id
         )
         
         try:

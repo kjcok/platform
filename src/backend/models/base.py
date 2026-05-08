@@ -129,6 +129,7 @@ class ValidationHistory(Base):
     exception_data_path = Column(String(512), nullable=True, comment='异常数据存储路径')
     error_message = Column(Text, nullable=True, comment='错误信息')
     execution_log = Column(Text, nullable=True, comment='执行日志')
+    batch_id = Column(String(64), nullable=True, index=True, comment='运行批次号（同一批规则的执行共享）')
     created_at = Column(DateTime, default=datetime.now, comment='创建时间')
     
     # 关系
@@ -150,6 +151,7 @@ class ValidationHistory(Base):
             'exception_data_path': self.exception_data_path,
             'error_message': self.error_message,
             'execution_log': self.execution_log,
+            'batch_id': self.batch_id,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
@@ -268,7 +270,20 @@ def init_db():
             conn.commit()
             print("[OK] 迁移完成：issues 表添加 resolution_note 列")
         except Exception:
-            # 列已存在或其他错误，忽略
+            pass
+
+        # validation_history 表：添加 batch_id 列及索引（如果不存在）
+        try:
+            conn.execute(text("ALTER TABLE validation_history ADD COLUMN batch_id TEXT"))
+            conn.commit()
+            print("[OK] 迁移完成：validation_history 表添加 batch_id 列")
+        except Exception:
+            pass
+        try:
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_validation_history_batch_id ON validation_history(batch_id)"))
+            conn.commit()
+            print("[OK] 迁移完成：validation_history 表创建 batch_id 索引")
+        except Exception:
             pass
 
     print(f"[OK] 数据库初始化完成: {DATABASE_PATH}")

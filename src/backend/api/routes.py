@@ -1237,20 +1237,23 @@ def list_validation_history():
                 session, asset_id=asset_id, page=1, per_page=1000  # 获取更多记录用于聚合
             )
             
-            # 按 asset_id + start_time（精确到分钟）分组，识别执行批次
+            # 按 batch_id 分组识别执行批次；旧数据无 batch_id 则回退到分钟级时间窗口
             from collections import defaultdict
             from datetime import datetime, timedelta
             
             batch_groups = defaultdict(list)
             for history in all_histories:
-                # 使用 asset_id + start_time的分钟级时间戳作为批次标识
-                time_key = history.start_time.strftime('%Y-%m-%d %H:%M') if history.start_time else 'unknown'
-                batch_key = (history.asset_id, time_key)
+                if history.batch_id:
+                    batch_key = history.batch_id
+                else:
+                    # 旧数据回退：按 asset_id + 分钟分组
+                    time_key = history.start_time.strftime('%Y-%m-%d %H:%M') if history.start_time else 'unknown'
+                    batch_key = f"legacy:{history.asset_id}:{time_key}"
                 batch_groups[batch_key].append(history)
             
             # 转换为聚合结果
             result = []
-            for (asset_id, time_key), histories in batch_groups.items():
+            for batch_key, histories in batch_groups.items():
                 if not histories:
                     continue
                 
@@ -1327,22 +1330,26 @@ def get_validation_history(history_id):
                     'message': f'校验历史 {history_id} 不存在'
                 }), 404
             
-            # 查询同一执行批次的所有规则记录（相同资产 + 相近时间）
+            # 查询同一执行批次的所有规则记录
             from datetime import timedelta
             
-            # 定义时间窗口：前后5分钟内的记录视为同一批次
-            time_window = timedelta(minutes=5)
-            start_time = history.start_time
-            
-            if start_time:
-                # 查询相同资产、时间相近的所有记录
+            if history.batch_id:
+                # 新数据：精确按 batch_id 查询
                 same_batch = session.query(ValidationHistory).filter(
-                    ValidationHistory.asset_id == history.asset_id,
-                    ValidationHistory.start_time >= start_time - time_window,
-                    ValidationHistory.start_time <= start_time + time_window
+                    ValidationHistory.batch_id == history.batch_id
                 ).all()
             else:
-                same_batch = [history]
+                # 旧数据回退：前后5分钟时间窗口
+                time_window = timedelta(minutes=5)
+                start_time = history.start_time
+                if start_time:
+                    same_batch = session.query(ValidationHistory).filter(
+                        ValidationHistory.asset_id == history.asset_id,
+                        ValidationHistory.start_time >= start_time - time_window,
+                        ValidationHistory.start_time <= start_time + time_window
+                    ).all()
+                else:
+                    same_batch = [history]
             
             # 聚合统计
             total_rules = len(same_batch)
@@ -1416,19 +1423,27 @@ def get_validation_rules(history_id):
                     'message': f'校验历史 {history_id} 不存在'
                 }), 404
             
-            # 查询同一个资产在同一分钟内的所有校验记录（同一次批量执行）
+            # 查询同一次批量执行的所有规则校验记录
             from datetime import timedelta
-            if representative.start_time:
-                start_min = representative.start_time.replace(second=0)
-                end_min = start_min + timedelta(minutes=1)
+            if representative.batch_id:
+                # 新数据：精确按 batch_id 查询
                 histories = session.query(ValidationHistory)\
-                    .filter(ValidationHistory.asset_id == representative.asset_id)\
-                    .filter(ValidationHistory.start_time >= start_min)\
-                    .filter(ValidationHistory.start_time <= end_min)\
+                    .filter(ValidationHistory.batch_id == representative.batch_id)\
                     .order_by(ValidationHistory.id.asc())\
                     .all()
             else:
-                histories = [representative]
+                # 旧数据回退：同一资产同一分钟
+                if representative.start_time:
+                    start_min = representative.start_time.replace(second=0)
+                    end_min = start_min + timedelta(minutes=1)
+                    histories = session.query(ValidationHistory)\
+                        .filter(ValidationHistory.asset_id == representative.asset_id)\
+                        .filter(ValidationHistory.start_time >= start_min)\
+                        .filter(ValidationHistory.start_time <= end_min)\
+                        .order_by(ValidationHistory.id.asc())\
+                        .all()
+                else:
+                    histories = [representative]
             
             # 构建结果
             rules = []
