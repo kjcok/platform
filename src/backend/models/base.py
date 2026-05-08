@@ -178,6 +178,7 @@ class Issue(Base):
     reporter = Column(String(256), nullable=True, comment='报告人')
     attachments = Column(Text, nullable=True, comment='附件路径列表(JSON格式)')
     contact_info = Column(String(512), nullable=True, comment='联系方式')
+    resolution_note = Column(Text, nullable=True, comment='解决说明')
     resolved_at = Column(DateTime, nullable=True, comment='解决时间')
     created_at = Column(DateTime, default=datetime.now, comment='创建时间')
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment='更新时间')
@@ -202,6 +203,7 @@ class Issue(Base):
             'reporter': self.reporter,
             'attachments': self.attachments,
             'contact_info': self.contact_info,
+            'resolution_note': self.resolution_note,
             'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
@@ -256,6 +258,19 @@ def init_db():
     初始化数据库，创建所有表
     """
     Base.metadata.create_all(bind=engine)
+
+    # 对已存在的表执行增量迁移（SQLite 兼容）
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        # issues 表：添加 resolution_note 列（如果不存在）
+        try:
+            conn.execute(text("ALTER TABLE issues ADD COLUMN resolution_note TEXT"))
+            conn.commit()
+            print("[OK] 迁移完成：issues 表添加 resolution_note 列")
+        except Exception:
+            # 列已存在或其他错误，忽略
+            pass
+
     print(f"[OK] 数据库初始化完成: {DATABASE_PATH}")
 
 

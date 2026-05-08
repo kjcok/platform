@@ -4,6 +4,7 @@
 支持强/弱规则控制、异常数据归档、问题工单自动生成
 """
 import os
+import warnings
 import pandas as pd
 import json
 from datetime import datetime
@@ -372,7 +373,9 @@ class QualityRunner:
                     # 尝试转换为datetime（无法解析的值设为NaT）
                     try:
                         original_count = len(df[rule.column_name])
-                        converted = pd.to_datetime(df[rule.column_name], errors='coerce')
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", UserWarning)
+                            converted = pd.to_datetime(df[rule.column_name], errors='coerce')
                         na_count = converted.isna().sum()
                         # 如果超过一半无法解析，说明不是日期列，回退到原始类型
                         if na_count / original_count > 0.5:
@@ -457,6 +460,18 @@ class QualityRunner:
                 except Exception as e:
                     print(f"[WARN] 解析规则参数时出错: {e}")
             
+            # 对字符串类规则，校验前将 NULL/NaN 填充为空字符串，
+            # 避免 GX 将其视为 "missing" 而忽略，导致漏检
+            STRING_RULES = {
+                'expect_column_value_lengths_to_be_between',
+                'expect_column_value_lengths_to_equal',
+                'expect_column_values_to_match_regex',
+                'expect_column_values_to_match_like_pattern',
+                'expect_column_values_to_match_strftime_format',
+            }
+            if ge_method_name in STRING_RULES and rule.column_name and rule.column_name in df.columns:
+                df[rule.column_name] = df[rule.column_name].fillna('')
+
             suite.add_expectation(expectation_class(**exp_params))
             
             # 创建 Validation Definition
