@@ -32,6 +32,9 @@ RULE_MAPPING = {
     
     # 一致性检查 - 比较两个列
     'column_pair_greater_than': 'expect_column_pair_values_A_to_be_greater_than_B',
+
+    # 字符串长度范围
+    'length_between': 'expect_column_value_lengths_to_be_between',
 }
 
 

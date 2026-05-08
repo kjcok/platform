@@ -72,7 +72,6 @@ class AutoTester:
             ('nav a:text("规则管理")', '规则管理'),
             ('nav a:text("运行管理")', '运行管理'),
             ('nav a:text("问题管理")', '问题管理'),
-            ('nav a:text("校验历史")', '校验历史'),
         ]
         
         for selector, description in menus:

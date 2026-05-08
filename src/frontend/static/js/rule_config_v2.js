@@ -128,12 +128,12 @@ const GE_EXPECTATIONS = {
                 autoGenerateName: (column) => `${column}_类型校验`
             },
             {
-                id: 'expect_column_values_to_match_length_between',
+                id: 'expect_column_value_lengths_to_be_between',
                 name: '字符串长度范围校验',
                 description: '检查字符串长度在指定范围内',
                 params: [
-                    { name: 'min_length', label: '最小长度', type: 'number', required: true },
-                    { name: 'max_length', label: '最大长度', type: 'number', required: true },
+                    { name: 'min_value', label: '最小长度', type: 'number', required: true },
+                    { name: 'max_value', label: '最大长度', type: 'number', required: true },
                     { name: 'mostly', label: '最小通过率', type: 'number', default: 1.0, min: 0, max: 1, step: 0.01 }
                 ],
                 autoGenerateName: (column) => `${column}_长度校验`

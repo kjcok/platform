@@ -1983,7 +1983,7 @@ def get_statistics_overview():
             
             # 校验历史统计
             total_validations = session.query(ValidationHistory).count()
-            successful_validations = session.query(ValidationHistory).filter_by(status='completed').count()
+            successful_validations = session.query(ValidationHistory).filter_by(status='success').count()
             
             return jsonify({
                 'status': 'success',

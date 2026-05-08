@@ -456,9 +456,17 @@ function renderExecutionHistory(executions) {
             <td>${getStatusBadge(exec.status)}</td>
             <td>
                 <button class="btn btn-primary" onclick="viewExecutionDetail(${exec.id})">详情</button>
+                <button class="btn btn-secondary" onclick="exportExecutionJson(${exec.id})" title="导出JSON结果">导出</button>
             </td>
         </tr>
     `).join('');
+}
+
+/**
+ * 导出执行结果为JSON
+ */
+function exportExecutionJson(historyId) {
+    window.open(`${API_BASE_URL}/validations/history/${historyId}/export/json?download=true`, '_blank');
 }
 
 /**

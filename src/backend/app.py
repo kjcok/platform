@@ -65,12 +65,6 @@ def issues():
     return render_template('issues.html')
 
 
-@app.route('/validations')
-def validations():
-    """校验历史"""
-    return render_template('validations.html')
-
-
 @app.route('/validations/<int:history_id>')
 def validation_detail(history_id):
     """校验详情"""

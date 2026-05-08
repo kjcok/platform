@@ -372,11 +372,16 @@ class QualityRunner:
                     # 尝试转换为datetime（无法解析的值设为NaT）
                     try:
                         original_count = len(df[rule.column_name])
-                        df[rule.column_name] = pd.to_datetime(df[rule.column_name], errors='coerce')
-                        na_count = df[rule.column_name].isna().sum()
-                        if na_count > 0:
-                            print(f"[WARN] 列 {rule.column_name} 转换 datetime 时有 {na_count}/{original_count} 个值无法解析")
-                        print(f"[INFO] 列 {rule.column_name} 已转换为 datetime 类型")
+                        converted = pd.to_datetime(df[rule.column_name], errors='coerce')
+                        na_count = converted.isna().sum()
+                        # 如果超过一半无法解析，说明不是日期列，回退到原始类型
+                        if na_count / original_count > 0.5:
+                            print(f"[INFO] 列 {rule.column_name} 非日期列（{na_count}/{original_count} 无法解析），保持原类型")
+                        else:
+                            df[rule.column_name] = converted
+                            if na_count > 0:
+                                print(f"[WARN] 列 {rule.column_name} 转换 datetime 时有 {na_count}/{original_count} 个值无法解析")
+                            print(f"[INFO] 列 {rule.column_name} 已转换为 datetime 类型")
                     except Exception as conv_err:
                         print(f"[WARN] 列 {rule.column_name} 转换为 datetime 失败: {conv_err}")
             
@@ -411,22 +416,32 @@ class QualityRunner:
                 try:
                     params = json.loads(rule.parameters)
                     # 通用参数
-                    if 'min_value' in params and params['min_value'] is not None:
-                        min_val = params['min_value']
-                        # 如果列是datetime类型，将边界值也转换为datetime，避免GX类型不匹配
-                        if rule.column_name in df.columns and pd.api.types.is_datetime64_any_dtype(df[rule.column_name]):
+                    # 数值/日期范围参数（兼容 min_length/max_length 旧命名）
+                    min_val = params.get('min_value')
+                    if min_val is None:
+                        min_val = params.get('min_length')
+                    if min_val is not None:
+                        # 如果列是datetime类型且边界值是字符串，将边界值也转换为datetime，避免GX类型不匹配
+                        if (rule.column_name in df.columns and
+                                pd.api.types.is_datetime64_any_dtype(df[rule.column_name]) and
+                                isinstance(min_val, str)):
                             try:
                                 min_val = pd.to_datetime(min_val)
                             except Exception as date_err:
-                                print(f"[WARN] min_value '{params['min_value']}' 转换为datetime失败: {date_err}")
+                                print(f"[WARN] min_value '{min_val}' 转换为datetime失败: {date_err}")
                         exp_params['min_value'] = min_val
-                    if 'max_value' in params and params['max_value'] is not None:
-                        max_val = params['max_value']
-                        if rule.column_name in df.columns and pd.api.types.is_datetime64_any_dtype(df[rule.column_name]):
+
+                    max_val = params.get('max_value')
+                    if max_val is None:
+                        max_val = params.get('max_length')
+                    if max_val is not None:
+                        if (rule.column_name in df.columns and
+                                pd.api.types.is_datetime64_any_dtype(df[rule.column_name]) and
+                                isinstance(max_val, str)):
                             try:
                                 max_val = pd.to_datetime(max_val)
                             except Exception as date_err:
-                                print(f"[WARN] max_value '{params['max_value']}' 转换为datetime失败: {date_err}")
+                                print(f"[WARN] max_value '{max_val}' 转换为datetime失败: {date_err}")
                         exp_params['max_value'] = max_val
                     if 'value_set' in params:
                         exp_params['value_set'] = params['value_set']
@@ -564,6 +579,11 @@ class QualityRunner:
         
         return config
     
+    # GE期望ID别名映射（兼容旧版错误命名）
+    GE_EXPECTATION_ALIASES = {
+        'expect_column_values_to_match_length_between': 'expect_column_value_lengths_to_be_between',
+    }
+
     def _map_rule_type_to_ge(self, rule_type: str, ge_expectation: str) -> str:
         """
         将规则类型映射回GE方法名
@@ -575,6 +595,9 @@ class QualityRunner:
         Returns:
             str: GE方法名
         """
+        # 别名修正（兼容数据库中存储的旧版错误ID）
+        ge_expectation = self.GE_EXPECTATION_ALIASES.get(ge_expectation, ge_expectation)
+
         # 如果ge_expectation以Expect开头，说明是类名，需要转换为方法名
         # 例如: ExpectColumnValuesToNotBeNull -> expect_column_values_to_not_be_null
         if ge_expectation.startswith('Expect'):

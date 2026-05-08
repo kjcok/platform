@@ -80,7 +80,6 @@ class AutoTester:
             (By.LINK_TEXT, '规则管理', '规则管理'),
             (By.LINK_TEXT, '运行管理', '运行管理'),
             (By.LINK_TEXT, '问题管理', '问题管理'),
-            (By.LINK_TEXT, '校验历史', '校验历史'),
         ]
         
         for selector_type, selector_text, description in menus:

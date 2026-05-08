@@ -24,7 +24,6 @@
                 <li><a href="{{ url_for('rule_management') }}" class="{% if request.endpoint == 'rule_management' %}active{% endif %}">规则管理</a></li>
                 <li><a href="{{ url_for('execution_management') }}" class="{% if request.endpoint == 'execution_management' %}active{% endif %}">运行管理</a></li>
                 <li><a href="{{ url_for('issues') }}" class="{% if request.endpoint == 'issues' %}active{% endif %}">问题管理</a></li>
-                <li><a href="{{ url_for('validations') }}" class="{% if request.endpoint == 'validations' %}active{% endif %}">校验历史</a></li>
             </ul>
         </div>
     </nav>
