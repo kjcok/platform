@@ -457,6 +457,19 @@ class QualityRunner:
                     # 递增/递减校验参数
                     if 'strictly' in params:
                         exp_params['strictly'] = params['strictly'] == 'true'
+                    # 正则表达式参数
+                    if 'regex' in params:
+                        exp_params['regex'] = params['regex']
+                    if 'regex_list' in params:
+                        exp_params['regex_list'] = params['regex_list']
+                    # LIKE 模式参数（兼容前端旧命名 pattern）
+                    if 'like_pattern' in params:
+                        exp_params['like_pattern'] = params['like_pattern']
+                    elif 'pattern' in params:
+                        exp_params['like_pattern'] = params['pattern']
+                    # 数据类型列表参数
+                    if 'type_list' in params:
+                        exp_params['type_list'] = params['type_list']
                 except Exception as e:
                     print(f"[WARN] 解析规则参数时出错: {e}")
             
@@ -503,17 +516,33 @@ class QualityRunner:
                     raise ValueError(exc_msg)
 
                 unexpected_count = result_data.get('unexpected_count', 0)
-                unexpected_percent = result_data.get('unexpected_percent', 0.0)
-                total_records = result_data.get('element_count', len(df))
-                failed_records = unexpected_count
-                pass_rate = round((1 - unexpected_percent / 100) * 100, 2) if unexpected_percent < 100 else 0.0
+                element_count = result_data.get('element_count', len(df))
 
-                # 根据mostly参数判断规则是否成功
-                success = (unexpected_percent / 100) <= (1 - mostly_value)
-                if not ge_success:
+                # NULL 统一策略：除专门的"非空校验"外，所有列值校验规则遇 NULL 均视为失败
+                ge_method = self._map_rule_type_to_ge(rule.rule_type, rule.ge_expectation)
+                is_not_null_rule = (ge_method == 'expect_column_values_to_not_be_null')
+
+                null_count = 0
+                if (not is_not_null_rule and rule.column_name and rule.column_name in df.columns):
+                    null_count = int(df[rule.column_name].isna().sum())
+
+                total_records = len(df)
+                failed_records = unexpected_count + null_count
+                pass_rate = round((total_records - failed_records) / total_records * 100, 2) if total_records > 0 else 0.0
+
+                # 根据 mostly 参数判断规则是否成功（NULL 算失败）
+                success = (pass_rate >= mostly_value * 100)
+                if not ge_success and pass_rate >= mostly_value * 100:
                     success = False
 
+                # 样本异常值：包含 GX 返回的异常值 + NULL 样本
                 sample_unexpected = result_data.get('partial_unexpected_list', [])[:10]
+                if null_count > 0:
+                    # 追加部分 NULL 样本，方便前端展示
+                    null_sample_limit = 10 - len(sample_unexpected)
+                    if null_sample_limit > 0:
+                        null_indices = df[df[rule.column_name].isna()].index[:null_sample_limit].tolist()
+                        sample_unexpected.extend([f"[NULL] (行号: {idx + 1})" for idx in null_indices])
                 
                 # 5. 更新校验历史（根据实际结果设置状态）
                 ValidationHistoryManager.update_history(

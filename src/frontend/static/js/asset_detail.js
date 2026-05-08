@@ -174,16 +174,14 @@ function renderRulesList(rules) {
     
     let html = '';
     rules.forEach(rule => {
+        const shortLabel = getShortRuleLabel(rule.ge_expectation);
+        const paramsText = formatRuleParams(rule.parameters);
         html += `
             <div class="rule-card">
                 <div class="rule-card-header">
-                    <div class="rule-name">${rule.name}</div>
+                    <div class="rule-name">${rule.name}<span class="rule-type-badge">${shortLabel}</span></div>
                 </div>
                 <div class="rule-info">
-                    <div class="rule-info-item">
-                        <div class="rule-info-label">规则类型</div>
-                        <div class="rule-info-value">${getRuleTypeLabel(rule.rule_type)}</div>
-                    </div>
                     <div class="rule-info-item">
                         <div class="rule-info-label">字段</div>
                         <div class="rule-info-value">${rule.column_name || '-'}</div>
@@ -193,6 +191,7 @@ function renderRulesList(rules) {
                         <div class="rule-info-value">${rule.enabled ? '✅ 已启用' : '⏸️ 已禁用'}</div>
                     </div>
                 </div>
+                <div class="rule-params">${paramsText}</div>
                 ${rule.description ? `<div class="rule-description">${rule.description}</div>` : ''}
                 <div class="rule-actions">
                     <button class="btn btn-secondary btn-small" onclick="editRule(${rule.id})">编辑</button>
@@ -384,6 +383,182 @@ function getRuleTypeLabel(type) {
         'custom_sql': '自定义SQL'
     };
     return typeMap[type] || type;
+}
+
+/**
+ * 辅助函数：GE expectation 映射为精简中文标签
+ */
+function getShortRuleLabel(geExpectation) {
+    const labelMap = {
+        'expect_column_values_to_be_between': '数值范围',
+        'expect_column_values_to_match_regex': '正则匹配',
+        'expect_column_values_to_not_match_regex': '正则排除',
+        'expect_column_values_to_match_regex_list': '多正则匹配',
+        'expect_column_values_to_not_match_regex_list': '多正则排除',
+        'expect_column_values_to_not_be_null': '非空校验',
+        'expect_column_values_to_be_null': '为空校验',
+        'expect_column_values_to_be_unique': '唯一性',
+        'expect_column_values_to_be_in_set': '枚举值',
+        'expect_column_values_to_not_be_in_set': '排除值',
+        'expect_column_value_lengths_to_be_between': '长度范围',
+        'expect_column_value_lengths_to_equal': '固定长度',
+        'expect_column_values_to_match_strftime_format': '日期格式',
+        'expect_column_values_to_be_dateutil_parseable': '日期可解析',
+        'expect_column_values_to_be_increasing': '递增',
+        'expect_column_values_to_be_decreasing': '递减',
+        'expect_column_values_to_match_like_pattern': 'LIKE匹配',
+        'expect_column_values_to_be_like': 'LIKE匹配',
+        'expect_column_values_to_be_of_type': '数据类型',
+        'expect_column_values_to_be_in_type_list': '类型列表',
+        'expect_column_mean_to_be_between': '平均值范围',
+        'expect_column_median_to_be_between': '中位数范围',
+        'expect_column_stdev_to_be_between': '标准差范围',
+        'expect_column_min_to_be_between': '最小值范围',
+        'expect_column_max_to_be_between': '最大值范围',
+        'expect_column_sum_to_be_between': '总和范围',
+        'expect_column_unique_value_count_to_be_between': '唯一值数量',
+        'expect_column_percentile_to_be_between': '百分位数',
+        'expect_column_quantile_values_to_be_between': '分位数',
+        'expect_column_distinct_values_to_be_in_set': '唯一值集合',
+        'expect_column_distinct_values_to_contain_set': '唯一值包含',
+        'expect_column_distinct_values_to_equal_set': '唯一值等于',
+        'expect_column_pair_values_A_to_be_greater_than_B': '列对大于',
+        'expect_column_pair_values_to_be_equal': '列对相等',
+        'expect_column_pair_values_to_be_between': '列对差值',
+        'expect_column_pair_values_to_not_be_null': '配对非空',
+        'expect_table_row_count_to_be_between': '行数范围',
+        'expect_table_columns_to_match_ordered_list': '列顺序',
+        'expect_table_column_count_to_be_between': '列数量',
+        'expect_table_columns_to_match_set': '列集合',
+        'expect_multicolumn_sum_to_equal': '多列求和',
+        'expect_multicolumn_values_to_be_unique': '多列唯一',
+        'expect_json_values_to_have_keys': 'JSON键',
+        'expect_json_schema_to_match': 'JSON Schema'
+    };
+    return labelMap[geExpectation] || '规则';
+}
+
+/**
+ * 辅助函数：格式化规则参数为人类可读文本
+ */
+function formatRuleParams(parametersJson) {
+    if (!parametersJson) return '-';
+    
+    let params = {};
+    try {
+        params = JSON.parse(parametersJson);
+    } catch (e) {
+        return '-';
+    }
+    
+    const truncate = (str, len) => {
+        if (!str) return str;
+        const s = String(str);
+        return s.length > len ? s.substring(0, len) + '...' : s;
+    };
+    
+    const parts = [];
+    
+    // 范围类：min_value + max_value
+    if ('min_value' in params && 'max_value' in params) {
+        parts.push(`范围: ${params.min_value} ~ ${params.max_value}`);
+    } else if ('min_value' in params) {
+        parts.push(`最小值: ${params.min_value}`);
+    } else if ('max_value' in params) {
+        parts.push(`最大值: ${params.max_value}`);
+    }
+    
+    // 正则
+    if ('regex' in params) {
+        parts.push(`正则: ${truncate(params.regex, 50)}`);
+    }
+    if ('regex_list' in params && Array.isArray(params.regex_list)) {
+        parts.push(`正则列表: ${truncate(params.regex_list.join(', '), 50)}`);
+    }
+    
+    // LIKE 模式
+    if ('like_pattern' in params) {
+        parts.push(`LIKE: ${truncate(params.like_pattern, 50)}`);
+    } else if ('pattern' in params) {
+        parts.push(`LIKE: ${truncate(params.pattern, 50)}`);
+    }
+    
+    // 枚举值
+    if ('value_set' in params && Array.isArray(params.value_set)) {
+        let display = params.value_set.slice(0, 5).join(', ');
+        if (params.value_set.length > 5) display += ', ...';
+        parts.push(`允许值: ${display}`);
+    }
+    
+    // 日期格式
+    if ('strftime_format' in params) {
+        parts.push(`日期格式: ${params.strftime_format}`);
+    }
+    
+    // 数据类型
+    if ('type_list' in params && Array.isArray(params.type_list)) {
+        parts.push(`类型: ${params.type_list.join(', ')}`);
+    }
+    if ('type_' in params) {
+        parts.push(`类型: ${params.type_}`);
+    }
+    
+    // 通过率
+    if ('mostly' in params) {
+        const pct = Math.round(parseFloat(params.mostly) * 100);
+        parts.push(`通过率 ≥ ${pct}%`);
+    }
+    
+    // 严格模式
+    if ('strictly' in params) {
+        parts.push(`严格模式: ${params.strictly ? '是' : '否'}`);
+    }
+    
+    // 对比列
+    if ('column_B' in params) {
+        parts.push(`对比列: ${params.column_B}`);
+    }
+    
+    // JSON 键
+    if ('expected_keys' in params && Array.isArray(params.expected_keys)) {
+        parts.push(`期望键: ${truncate(params.expected_keys.join(', '), 50)}`);
+    }
+    
+    // 列集合/列表
+    if ('column_list' in params && Array.isArray(params.column_list)) {
+        parts.push(`列顺序: ${truncate(params.column_list.join(' → '), 50)}`);
+    }
+    if ('column_set' in params && Array.isArray(params.column_set)) {
+        let display = params.column_set.slice(0, 3).join(', ');
+        if (params.column_set.length > 3) display += ', ...';
+        parts.push(`列集合: ${display}`);
+    }
+    if ('exact_match' in params) {
+        parts.push(`精确匹配: ${params.exact_match}`);
+    }
+    
+    // 多列
+    if ('columns_list' in params && Array.isArray(params.columns_list)) {
+        let display = params.columns_list.slice(0, 3).join(', ');
+        if (params.columns_list.length > 3) display += ', ...';
+        parts.push(`参与列: ${display}`);
+    }
+    if ('sum_total' in params) {
+        parts.push(`目标和: ${params.sum_total}`);
+    }
+    
+    // 分位数
+    if ('quantiles' in params) {
+        parts.push(`分位数: ${params.quantiles}`);
+    }
+    if ('percentile' in params) {
+        parts.push(`百分位: ${params.percentile}`);
+    }
+    if ('ranges' in params) {
+        parts.push(`范围: ${truncate(String(params.ranges), 50)}`);
+    }
+    
+    return parts.length > 0 ? parts.join(' | ') : '-';
 }
 
 /**
